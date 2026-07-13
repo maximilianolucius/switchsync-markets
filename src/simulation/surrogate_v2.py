@@ -29,26 +29,23 @@ def build_basis_operator_v2(p: SurrogateParams, rng: np.random.Generator,
     off-diagonal Frobenius norm (budget), then A is rescaled to rho_target.
     """
     N = p.N
-    L = ring_laplacian(N, radius=1)            # zero-row-sum; off-diag +1 on ring
-    adj = (L - np.diag(np.diag(L)))            # ring adjacency (0/1), symmetric
-    mag = p.intra_coupling * adj               # coupling magnitudes
+    L = ring_laplacian(N, radius=1)            # zero-row-sum; diag -2, off +1
+    diag_L = np.diag(np.diag(L))               # -2 I on the ring
+    adj = (L - diag_L)                         # ring adjacency (0/1), symmetric
+    mag = p.intra_coupling * adj               # off-diagonal coupling magnitudes
     off = mag.copy()
 
-    n_negative = 0
     if p.signed:
-        # symmetric sign matrix: flip a fraction of existing edges to negative
+        # symmetric sign matrix: flip a fraction of existing edges to negative,
+        # preserving each magnitude (=> off-diagonal Frobenius budget preserved).
         iu = np.triu_indices(N, 1)
-        edge_mask = adj[iu] > 0
+        edge_idx = np.where(adj[iu] > 0)[0]
         signs_u = np.ones(len(iu[0]))
-        edge_idx = np.where(edge_mask)[0]
         k = int(round(neg_fraction * len(edge_idx)))
         flip = rng.choice(edge_idx, size=k, replace=False) if k > 0 else np.array([], int)
         signs_u[flip] = -1.0
-        S = np.zeros((N, N))
-        S[iu] = signs_u
-        S = S + S.T
-        off = mag * S                          # magnitudes preserved, some negative
-        n_negative = int(np.sum(off < -1e-12))
+        S = np.zeros((N, N)); S[iu] = signs_u; S = S + S.T
+        off = mag * S
 
     if p.directed:
         asym = 0.5 * p.intra_coupling * rng.standard_normal((N, N))
@@ -59,7 +56,9 @@ def build_basis_operator_v2(p: SurrogateParams, rng: np.random.Generator,
     if p.heterogeneity > 0:
         base_persist = base_persist + p.heterogeneity * rng.standard_normal(N)
 
-    A = np.diag(base_persist) + off
+    # Laplacian-consistent: include the diffusive self-term (diag of intra_coupling*L),
+    # so the unsigned/undirected/homogeneous case equals diag(1) + intra_coupling*L.
+    A = np.diag(base_persist) + p.intra_coupling * diag_L + off
     r = float(np.max(np.abs(np.linalg.eigvals(A))))
     if r > 0:
         A = A * (p.rho_target / r)
@@ -80,6 +79,32 @@ def build_basis_operator_v2(p: SurrogateParams, rng: np.random.Generator,
     return A, meta
 
 
+def difference_step_maps_v2(p: SurrogateParams, sched: Schedule,
+                            rng: np.random.Generator) -> list:
+    """Per-step maps M_t = A - 2*kappa*diag(gamma_t) using the corrected operator.
+    The ordered product of these maps gives the exact transverse contraction of the
+    basis system (metrics.propagator.full_contraction_*)."""
+    A, _ = build_basis_operator_v2(p, rng)
+    idx = np.arange(p.N)
+    maps = []
+    for step in range(sched.total_steps):
+        gamma = sched.gamma_at_step(step)
+        M = A.copy()
+        M[idx, idx] -= 2.0 * p.kappa * gamma
+        maps.append(M)
+    return maps
+
+
+def average_operator_map_v2(p: SurrogateParams, occ: np.ndarray,
+                            rng: np.random.Generator, H: int) -> list:
+    """Static average-graph maps: A - 2*kappa*diag(occupancy), repeated H times."""
+    A, _ = build_basis_operator_v2(p, rng)
+    idx = np.arange(p.N)
+    M = A.copy()
+    M[idx, idx] -= 2.0 * p.kappa * np.asarray(occ, float)
+    return [M for _ in range(H)]
+
+
 @dataclass
 class ObservedDataV2:
     p1: np.ndarray            # (T+1, N) venue-1 levels (with factor + noise)
@@ -98,11 +123,8 @@ def simulate_observed_v2(p: SurrogateParams, sched: Schedule,
     and can use the corrected signed operator. p1/p2 are built directly from the
     recorded basis, so d_true = the structural part of p1-p2 exactly."""
     N, T = p.N, sched.total_steps
-    if signed_operator or p.signed or p.directed:
-        A, _ = build_basis_operator_v2(p, np.random.default_rng(p.seed_struct))
-    else:
-        from src.simulation.linear_surrogate import build_basis_operator
-        A = build_basis_operator(p)
+    # Single, self-contained operator source for ALL cases (no v1 import).
+    A, _ = build_basis_operator_v2(p, np.random.default_rng(p.seed_struct))
 
     beta = p.factor_scale * (1.0 + 0.3 * rng.standard_normal(N))
     F = np.zeros(T + 1)

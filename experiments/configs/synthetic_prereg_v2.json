@@ -19,11 +19,21 @@
   },
   "seed_blocks": {
     "chaos": [7],
+    "g0a": [11, 12, 13],
     "g0b": [11, 12, 13, 14, 15],
     "g0c_msf": [31],
     "paired_causal": [41, 42, 43, 44, 45, 46, 47, 48],
     "stages": [51, 52, 53, 54, 55],
     "identifiability": [61, 62, 63, 64, 65]
+  },
+  "surrogate_paired": {
+    "comment": "Concrete paired-construction grid for the surrogate gates (G1_weak, G1_strict, G2, G3). K*cycles must divide H exactly. variable_dwell_multiset is non-constant and sums to H (for the shuffled_dwell null).",
+    "N": 24, "N_IL": 6, "K": 6, "H": 240,
+    "kappa": 0.6, "rho_target": 1.04, "intra_coupling": 0.06,
+    "cycles_fast": 20, "cycles_intermediate": 5, "cycles_slow": 1,
+    "variable_dwell_multiset": [8, 16, 24, 40, 56, 96],
+    "best_static_search": 200,
+    "neg_fraction_signed": 0.4
   },
   "tolerances": {
     "sync_threshold_E12": 0.02,
@@ -43,6 +53,7 @@
       "density_ratio": 0.25,
       "T_swt_grid": [11.0, 23.0, 50.0, 120.0],
       "total_time": 4000.0,
+      "record_every": 25,
       "outcomes": ["PASS", "FAIL", "INCONCLUSIVE_BY_COST"],
       "rule": "If compute budget forbids N>=200 at T=4000, declare INCONCLUSIVE_BY_COST. G0A must NEVER be silently replaced by G0B.",
       "cost_flag": "EXPENSIVE: N=400, T=4000, dt=0.01 => 400k steps on 1600-dim state x grid x seeds."
@@ -60,6 +71,7 @@
       "goal": "Minimal-system transverse Lyapunov with CORRECT anti-phase channels.",
       "module": "src/dynamics/msf_switching.py:smooth_square_gamma_v2",
       "N": 2, "lam_perp": 2.0, "alpha": 5.0,
+      "n_steps": 40000, "transient_steps": 3000, "renorm_every": 5,
       "sigma_grid": [0.05, 0.15, 0.3, 0.5, 0.8],
       "T_swt_grid": [11.0, 25.0, 100.0, 135.0],
       "prerequisite_tests": ["channels anti-phase", "gamma0+gamma1~=1 outside transitions", "offset=T_swt", "alternation within period"],
