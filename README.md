@@ -6,6 +6,15 @@ This is a new, independent research project. It is **not** a continuation of any
 
 > **No real market data is used anywhere in this repository.** All results are synthetic. Synthetic results MUST NOT be interpreted as evidence about real markets, predictability, or trading value. The empirical phase is unauthorized until the gates below justify it and a new authorization is given.
 
+> ## ⚠ Repository status — read first (P1.1, 2026-07-13)
+>
+> - **P1 v1 was independently audited and partially invalidated / superseded** (`docs/audits/p1_v1_independent_audit.md`, 13 defects): G0 → *calibrated demonstration*; G1/G2 → *superseded pending paired rerun*; G3-signed & H3 → *invalid*; G4 → *FAIL on precision/recall only* (its `contraction_corr` invalid); MSF → *invalid*; freeze v1 → *non-executable*.
+> - **The v1 result JSONs are kept only as a historical record** — byte-for-byte, each with a `*.superseded.json` sidecar. They are **not** current, valid findings.
+> - **P1.1 delivered a corrected pre-registration, corrected modules, and an executable freeze v2** (`docs/methodology/synthetic_prereg_v2.md` + `.json`; freeze `artifacts/freeze_manifest_v2.json`, content hash `698c636d…`).
+> - **The v2 runners have NOT been written yet**, and **no v2 experiment has been executed.** There are **no v2 results.**
+> - **There is no authorization to use real market data.** Everything here is synthetic; the empirical phase remains unauthorized.
+> - **The repository has no license yet** (`docs/LICENSE_BLOCKER.md`); none has been invented. The bundled third-party arXiv PDF (`docs/research/sources/…`) retains its **own** rights and is **not** relicensed by being included here.
+
 ## Inspiring paper
 
 Eser, Medeiros, Riza, Engel, arXiv:2507.08007v2 (nlin.AO, 2026). Local copy and SHA-256 in `docs/research/sources/`. Full mathematical audit in `docs/research/engel_paper_audit.md`.

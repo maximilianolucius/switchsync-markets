@@ -1,6 +1,19 @@
 # STATUS
 
-**Phase:** P0–P1 complete (synthetic only). **Real data used: NONE.**
+> ## ⚠ Read first — current status (P1.1, 2026-07-13)
+>
+> - **P1 v1 was independently audited and partially invalidated / superseded** (`docs/audits/p1_v1_independent_audit.md`). The v1 gate table below is the **historical v1 record**, not current valid findings; see the *v1-audit addendum* section for corrected dispositions (G0 → calibrated demonstration; G1/G2 → superseded; G3-signed & H3 → invalid; G4 → FAIL on P/R only; MSF → invalid; freeze v1 → non-executable).
+> - **The v1 result JSONs are kept only as a historical record** (byte-for-byte, with `*.superseded.json` sidecars).
+> - **P1.1 delivered:** the corrected pre-registration (`docs/methodology/synthetic_prereg_v2.md` + `.json`), corrected modules (`paired_switching`, `msf_switching`, `surrogate_v2`, `freeze_v2`), and the executable **freeze v2** (`artifacts/freeze_manifest_v2.json`, content hash `698c636d…`).
+> - **The v2 runners have NOT been written yet**, and **no v2 experiment has been executed** — there are **no v2 results**.
+> - **No authorization exists to use real market data.** All content is synthetic.
+> - **No license is selected yet** (`docs/LICENSE_BLOCKER.md`); the bundled third-party arXiv PDF keeps its own rights and is not relicensed by inclusion.
+>
+> The sections below (v1 hashes, "20 passed", v1 gate outcomes) describe the **v1** state and are retained for the historical record.
+
+---
+
+**Phase:** P0–P1 complete (synthetic only); P1.1 audit + v2 contract + freeze delivered (v2 not executed). **Real data used: NONE.**
 **Frozen contract:** `experiments/configs/synthetic_prereg_v1.json`, SHA-256 `abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82`.
 **Freeze manifest:** `artifacts/freeze_manifest_v1.json` — 19 files (src + config), verified `ok=True`.
 **Environment:** Python 3.14.3; numpy 2.4.4, scipy 1.17.1, matplotlib 3.10.9 (pinned in `requirements.lock.txt`).
