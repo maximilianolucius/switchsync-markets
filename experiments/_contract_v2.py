@@ -1,14 +1,21 @@
-"""Execution contract shared by all v2 runners (P1.2).
+"""Execution contract shared by all v2 runners (P1.2, revised in P1.2-A).
 
-Guarantees per the P1.2 brief:
-  * a full run requires --i-am-authorized AND the exact prereg canonical hash,
-    prereg file SHA, and execution-freeze content hash;
-  * the execution freeze is verified BEFORE any computation;
-  * reports are *_v2.json, atomic, refuse to overwrite (and refuse a stale .tmp);
-  * every report carries full provenance;
-  * verdict is one of {PASS, FAIL, INCONCLUSIVE, EXECUTION_INVALID};
-  * any contract failure exits nonzero and writes NO report;
-  * import-safe: nothing runs on import.
+Two authoritative documents are required for a full run:
+  * the SCIENTIFIC prereg  (default synthetic_prereg_v3.json): gate criteria,
+    estimands, seed policy, statistical contract, cost rule;
+  * the EXECUTION contract (default synthetic_execution_contract_v1.json):
+    concrete operational grids.
+
+Full-run gate (all required):
+  --i-am-authorized
+  --expect-prereg-canonical / --expect-prereg-file-sha
+  --expect-execution-contract-canonical / --expect-execution-contract-file-sha
+  --expect-freeze-content-hash
+  --expect-freeze-commit and --expect-freeze-tag
+and the freeze IDENTITY must hold: clean tree, HEAD == freeze_commit, freeze_tag
+dereferences to freeze_commit, HEAD is not a descendant of freeze_commit, and the
+source tree verifies against the manifest. Any violation exits nonzero and writes
+NO report. Reports are *_v2.json, atomic, refuse-overwrite. Import-safe.
 """
 from __future__ import annotations
 
@@ -18,7 +25,7 @@ import json
 import platform
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -27,20 +34,20 @@ if str(REPO_ROOT) not in sys.path:
 
 import numpy as np  # noqa: E402
 
-from src.validation.freeze_v2 import (  # noqa: E402
-    config_canonical_hash,
-    verify_manifest_v2,
-)
+from src.validation.freeze_v2 import config_canonical_hash, verify_manifest_v2  # noqa: E402
 
-DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v2.json"
-DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v2.json"
+DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v3.json"
+DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v1.json"
+DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v3.json"
 DEFAULT_OUT = REPO_ROOT / "experiments" / "reports"
 
 VERDICTS = {"PASS", "FAIL", "INCONCLUSIVE", "EXECUTION_INVALID"}
+REASON_CODES = {"INCONCLUSIVE_BY_COST", "TIE", "PARTIAL_NO_TSWT_DEPENDENCE",
+                "PREREQ_FAIL", "STRESS_NOT_IMPLEMENTED"}
 
 
 class ContractError(Exception):
-    """Raised on any execution-contract violation (exit code 2)."""
+    """Any execution-contract violation (exit code 2)."""
 
 
 @dataclass
@@ -50,28 +57,62 @@ class RunContext:
     authorized: bool
     dry_run: bool
     out_dir: Path
-    prereg_path: Path
     prereg: dict
     prereg_canonical_hash: str
     prereg_file_sha256: str
-    freeze_path: Path
-    freeze_content_hash: str | None
-    runner_sha256: str
-    commit_sha: str
-    environment: dict
+    execution: dict
+    execution_canonical_hash: str
+    execution_file_sha256: str
+    freeze_content_hash: str | None = None
+    source_commit: str | None = None
+    freeze_commit: str | None = None
+    freeze_tag: str | None = None
+    runtime_head: str = "unknown"
+    runner_sha256: str = ""
+    environment: dict = field(default_factory=dict)
 
 
 def _sha_file(p) -> str:
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 
-def _git_commit() -> str:
+def _git(*args) -> str:
+    return subprocess.check_output(["git", "-C", str(REPO_ROOT), *args],
+                                   stderr=subprocess.DEVNULL).decode().strip()
+
+
+def _git_head() -> str:
     try:
-        return subprocess.check_output(
-            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
-            stderr=subprocess.DEVNULL).decode().strip()
+        return _git("rev-parse", "HEAD")
     except Exception:
         return "unknown"
+
+
+def _tree_clean() -> bool:
+    try:
+        return _git("status", "--porcelain") == ""
+    except Exception:
+        return False
+
+
+def _deref_tag(tag: str) -> str | None:
+    try:
+        return _git("rev-parse", f"{tag}^{{commit}}")
+    except Exception:
+        return None
+
+
+def _is_descendant(ancestor: str, desc: str) -> bool:
+    """True iff `desc` is a strict descendant of `ancestor`."""
+    if ancestor == desc:
+        return False
+    try:
+        subprocess.check_call(["git", "-C", str(REPO_ROOT), "merge-base",
+                               "--is-ancestor", ancestor, desc],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:
+        return False
 
 
 def _env() -> dict:
@@ -98,74 +139,119 @@ def _native(o):
 
 
 def add_common_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--i-am-authorized", action="store_true",
-                        help="required for a full (non-dry-run) execution")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="print the plan and projected cost; execute nothing")
+    parser.add_argument("--i-am-authorized", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--prereg", default=str(DEFAULT_PREREG))
+    parser.add_argument("--execution-contract", default=str(DEFAULT_EXEC))
     parser.add_argument("--expect-prereg-canonical", default=None)
     parser.add_argument("--expect-prereg-file-sha", default=None)
+    parser.add_argument("--expect-execution-contract-canonical", default=None)
+    parser.add_argument("--expect-execution-contract-file-sha", default=None)
     parser.add_argument("--freeze", default=str(DEFAULT_FREEZE))
     parser.add_argument("--expect-freeze-content-hash", default=None)
+    parser.add_argument("--expect-freeze-commit", default=None)
+    parser.add_argument("--expect-freeze-tag", default=None)
     parser.add_argument("--out-dir", default=str(DEFAULT_OUT))
 
 
+def _load(path_str):
+    p = Path(path_str)
+    if not p.exists():
+        raise ContractError(f"document not found: {p}")
+    raw = p.read_bytes()
+    obj = json.loads(raw)
+    return obj, config_canonical_hash(obj), hashlib.sha256(raw).hexdigest()
+
+
 def build_context(args, gate: str, runner_file: str) -> RunContext:
-    prereg_path = Path(args.prereg)
-    if not prereg_path.exists():
-        raise ContractError(f"prereg not found: {prereg_path}")
-    raw = prereg_path.read_bytes()
-    prereg = json.loads(raw)
-    canon = config_canonical_hash(prereg)
-    filesha = hashlib.sha256(raw).hexdigest()
+    prereg, pc, pf = _load(args.prereg)
+    ex, ec, ef = _load(args.execution_contract)
     ctx = RunContext(
-        gate=gate, runner_file=str(runner_file),
-        authorized=bool(args.i_am_authorized), dry_run=bool(args.dry_run),
-        out_dir=Path(args.out_dir), prereg_path=prereg_path, prereg=prereg,
-        prereg_canonical_hash=canon, prereg_file_sha256=filesha,
-        freeze_path=Path(args.freeze), freeze_content_hash=None,
-        runner_sha256=_sha_file(runner_file), commit_sha=_git_commit(),
-        environment=_env())
+        gate=gate, runner_file=str(runner_file), authorized=bool(args.i_am_authorized),
+        dry_run=bool(args.dry_run), out_dir=Path(args.out_dir),
+        prereg=prereg, prereg_canonical_hash=pc, prereg_file_sha256=pf,
+        execution=ex, execution_canonical_hash=ec, execution_file_sha256=ef,
+        runtime_head=_git_head(), runner_sha256=_sha_file(runner_file), environment=_env())
 
     if args.dry_run:
-        return ctx  # dry-run: no auth/hash requirement, no computation
+        return ctx  # dry-run: no auth/hash/identity requirement, no computation
 
-    # ---- full-run gate: auth + exact hashes + freeze verification ----
+    # ---- full-run: authorization + document hashes ----
     if not args.i_am_authorized:
         raise ContractError("full run requires --i-am-authorized (or use --dry-run)")
-    if (args.expect_prereg_canonical is None or args.expect_prereg_file_sha is None
-            or args.expect_freeze_content_hash is None):
-        raise ContractError("full run requires --expect-prereg-canonical, "
-                            "--expect-prereg-file-sha and --expect-freeze-content-hash")
-    if args.expect_prereg_canonical != canon:
-        raise ContractError(
-            f"prereg canonical hash mismatch: expected {args.expect_prereg_canonical}, got {canon}")
-    if args.expect_prereg_file_sha != filesha:
-        raise ContractError("prereg file SHA-256 mismatch")
-    if not ctx.freeze_path.exists():
-        raise ContractError(f"execution freeze not found: {ctx.freeze_path}")
-    manifest = json.loads(ctx.freeze_path.read_text())
+    required = {"--expect-prereg-canonical": args.expect_prereg_canonical,
+                "--expect-prereg-file-sha": args.expect_prereg_file_sha,
+                "--expect-execution-contract-canonical": args.expect_execution_contract_canonical,
+                "--expect-execution-contract-file-sha": args.expect_execution_contract_file_sha,
+                "--expect-freeze-content-hash": args.expect_freeze_content_hash,
+                "--expect-freeze-commit": args.expect_freeze_commit,
+                "--expect-freeze-tag": args.expect_freeze_tag}
+    missing = [k for k, v in required.items() if v is None]
+    if missing:
+        raise ContractError(f"full run requires: {', '.join(missing)}")
+    if args.expect_prereg_canonical != pc:
+        raise ContractError(f"prereg canonical mismatch: expected {args.expect_prereg_canonical}, got {pc}")
+    if args.expect_prereg_file_sha != pf:
+        raise ContractError("prereg file SHA mismatch")
+    if args.expect_execution_contract_canonical != ec:
+        raise ContractError("execution-contract canonical mismatch")
+    if args.expect_execution_contract_file_sha != ef:
+        raise ContractError("execution-contract file SHA mismatch")
+    # the execution contract must bind the exact prereg
+    if ex.get("binds_prereg_canonical_hash") not in (None, pc):
+        raise ContractError("execution contract binds a different prereg canonical hash")
+
+    # ---- freeze identity (B) ----
+    if not _tree_clean():
+        raise ContractError("working tree is not clean")
+    head = ctx.runtime_head
+    if head != args.expect_freeze_commit:
+        raise ContractError(f"HEAD ({head}) != expected freeze_commit ({args.expect_freeze_commit})")
+    deref = _deref_tag(args.expect_freeze_tag)
+    if deref != args.expect_freeze_commit:
+        raise ContractError(f"freeze_tag {args.expect_freeze_tag} derefs to {deref}, "
+                            f"expected {args.expect_freeze_commit}")
+    if _is_descendant(args.expect_freeze_commit, head):
+        raise ContractError("HEAD is a descendant of freeze_commit; refuse to run off the freeze")
+
+    # ---- freeze manifest verification (before compute) ----
+    freeze_path = Path(args.freeze)
+    if not freeze_path.exists():
+        raise ContractError(f"execution freeze not found: {freeze_path}")
+    manifest = json.loads(freeze_path.read_text())
     ver = verify_manifest_v2(REPO_ROOT, manifest)
     if not ver["ok"]:
         raise ContractError(f"execution freeze verification failed: {ver}")
     if manifest.get("content_hash") != args.expect_freeze_content_hash:
         raise ContractError("execution-freeze content hash mismatch")
+
     ctx.freeze_content_hash = manifest["content_hash"]
+    ctx.source_commit = manifest.get("git_commit")
+    ctx.freeze_commit = args.expect_freeze_commit
+    ctx.freeze_tag = args.expect_freeze_tag
     return ctx
 
 
-def provenance(ctx: RunContext, seeds, params, criterion) -> dict:
-    return {
+def provenance(ctx: RunContext, seeds, params, criterion, reason_code=None) -> dict:
+    prov = {
         "prereg_canonical_hash": ctx.prereg_canonical_hash,
         "prereg_file_sha256": ctx.prereg_file_sha256,
-        "execution_freeze_content_hash": ctx.freeze_content_hash,
+        "execution_contract_canonical_hash": ctx.execution_canonical_hash,
+        "execution_contract_file_sha256": ctx.execution_file_sha256,
+        "freeze_content_hash": ctx.freeze_content_hash,
         "runner_sha256": ctx.runner_sha256,
-        "commit_sha": ctx.commit_sha,
+        "source_commit": ctx.source_commit,
+        "freeze_commit": ctx.freeze_commit,
+        "freeze_tag": ctx.freeze_tag,
+        "runtime_head": ctx.runtime_head,
         "environment": ctx.environment,
         "seeds": list(seeds),
         "params": params,
         "criterion": criterion,
     }
+    if reason_code is not None:
+        prov["reason_code"] = reason_code
+    return prov
 
 
 def validate_report_schema(report: dict) -> None:
@@ -176,11 +262,15 @@ def validate_report_schema(report: dict) -> None:
     if report["verdict"] not in VERDICTS:
         raise ContractError(f"invalid verdict: {report['verdict']}")
     prov_req = {"prereg_canonical_hash", "prereg_file_sha256",
-                "execution_freeze_content_hash", "runner_sha256", "commit_sha",
-                "environment", "seeds", "params", "criterion"}
+                "execution_contract_canonical_hash", "execution_contract_file_sha256",
+                "freeze_content_hash", "runner_sha256", "source_commit", "freeze_commit",
+                "freeze_tag", "runtime_head", "environment", "seeds", "params", "criterion"}
     pm = prov_req - set(report.get("provenance", {}))
     if pm:
         raise ContractError(f"provenance missing fields: {pm}")
+    rc = report.get("provenance", {}).get("reason_code")
+    if rc is not None and rc not in REASON_CODES:
+        raise ContractError(f"invalid reason_code: {rc}")
 
 
 def atomic_write_report(ctx: RunContext, name: str, report: dict) -> Path:
@@ -205,12 +295,6 @@ def atomic_write_report(ctx: RunContext, name: str, report: dict) -> Path:
 
 def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
             argv=None) -> int:
-    """Standard entry point for a gate runner.
-
-    plan_fn(ctx) -> dict describing the plan and projected cost (dry-run).
-    compute_fn(ctx) -> a full report dict (must include gate/verdict/provenance/result).
-    Returns an exit code (0 ok; 1 execution error; 2 contract error).
-    """
     parser = argparse.ArgumentParser(description=f"v2 runner: {gate}")
     add_common_args(parser)
     args = parser.parse_args(argv)
@@ -230,7 +314,7 @@ def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
     except ContractError as e:
         print(f"CONTRACT ERROR: {e}", file=sys.stderr)
         return 2
-    except Exception as e:  # science/runtime failure
+    except Exception as e:
         print(f"EXECUTION ERROR: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
     print(f"wrote {out}  verdict={report['verdict']}")

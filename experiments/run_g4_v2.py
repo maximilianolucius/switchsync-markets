@@ -28,8 +28,8 @@ REPORT = "g4_identifiability_v2.json"
 
 
 def _params(ctx):
-    g = ctx.prereg["gates"][GATE]
-    seeds = ctx.prereg["seed_blocks"]["identifiability"]
+    g = ctx.execution["g4"]                                   # operational grid
+    seeds = ctx.prereg["seed_blocks"]["identifiability"]      # frozen seeds (prereg)
     return g, seeds
 
 

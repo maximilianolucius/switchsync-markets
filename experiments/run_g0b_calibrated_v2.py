@@ -16,7 +16,7 @@ REPORT = "g0b_calibrated_v2.json"
 
 
 def _cfg(ctx):
-    return (ctx.prereg["gates"][GATE], ctx.prereg["seed_blocks"]["g0b"],
+    return (ctx.execution["g0b"], ctx.prereg["seed_blocks"]["g0b"],
             ctx.prereg["global"]["dt"], ctx.prereg["tolerances"])
 
 

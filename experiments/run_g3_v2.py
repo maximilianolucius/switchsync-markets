@@ -23,7 +23,7 @@ REPORT = "g3_robustness_v2.json"
 
 
 def _cfg(ctx):
-    return (ctx.prereg["surrogate_paired"], ctx.prereg["gates"][GATE]["stages"],
+    return (ctx.execution["surrogate_paired"], ctx.execution["g3_stages"],
             ctx.prereg["seed_blocks"]["stages"])
 
 

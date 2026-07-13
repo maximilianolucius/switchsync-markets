@@ -1,0 +1,113 @@
+{
+  "contract_name": "switchsync-synthetic-prereg-v3",
+  "contract_version": 3,
+  "supersedes": "synthetic_prereg_v2.json",
+  "document_kind": "SCIENTIFIC_PREREG",
+  "description": "Scientific pre-registration v3: gate criteria + estimands + a CLOSED statistical contract + best-static seed policy + G0A cost rule. Operational grids live in synthetic_execution_contract_v1.json. NO real market data. NOT YET EXECUTED.",
+  "lineage": {
+    "reason_for_v3": "Prereg v2 (canonical 7e5f1536, file 2607) was mutated in P1.2 with execution parameters (Case 2 diagnosis: no gate criterion changed). Separately, the statistical contract (best-static selection vs evaluation seeds, effect sizes, multiplicity, tie/failed-run rules) was NOT closed in the frozen prereg; closing it is a genuine scientific revision -> v3. Prereg v2 restored to its frozen bytes and marked SUPERSEDED (tag untouched).",
+    "prereg_v2_canonical": "7e5f1536e848bf53e3803217a00fff2cee0963d71af5099711ec7463283831d7",
+    "prereg_v2_file_sha256": "2607961200a280e4097a6289787fd063a97e3e4d770747f992492be66410517e",
+    "changelog": "docs/methodology/prereg_v2_to_v3_changelog.md"
+  },
+  "global": {"dt": 0.01, "integrator": "rk4_fixed_step", "ic_range": [-2.0, 2.0]},
+  "fhn": {"eps": 0.05, "a_odd": 0.87, "a_even": 0.97, "phi_expr": "pi/2 - 0.1",
+          "sigma_intra": 0.1, "radius": 1, "density_ratio": 0.25},
+  "seed_blocks": {
+    "comment": "Frozen seeds. paired_causal is split into disjoint SELECTION and EVALUATION seeds so the best-static is never chosen on the realization it is judged against.",
+    "chaos": [7],
+    "g0a": [11, 12, 13],
+    "g0b": [11, 12, 13, 14, 15],
+    "g0c_msf": [31],
+    "paired_selection": [41, 42, 43, 44, 45, 46, 47, 48],
+    "paired_evaluation": [81, 82, 83, 84, 85, 86, 87, 88],
+    "stages": [51, 52, 53, 54, 55],
+    "identifiability": [61, 62, 63, 64, 65]
+  },
+  "tolerances": {"sync_threshold_E12": 0.02, "sync_tail_frac": 0.25},
+  "outcome_vocabulary": {
+    "report_verdicts": ["PASS", "FAIL", "INCONCLUSIVE", "EXECUTION_INVALID"],
+    "reason_codes": ["INCONCLUSIVE_BY_COST", "TIE", "PARTIAL_NO_TSWT_DEPENDENCE", "PREREQ_FAIL", "STRESS_NOT_IMPLEMENTED"],
+    "suite_states": ["NOT_RUN"],
+    "policy": "INCONCLUSIVE_BY_COST is NOT a top-level verdict; it is verdict=INCONCLUSIVE with reason_code=INCONCLUSIVE_BY_COST. NOT_RUN is a suite state (no report written), never a verdict."
+  },
+  "statistical_contract": {
+    "experimental_unit": "one seed within the gate's frozen seed block; each seed fixes the structural operator and/or schedule draw for that gate.",
+    "paired_comparison": "differences are computed WITHIN a seed (same operator/base snapshots) between the treatment arm and its comparator, then aggregated across seeds.",
+    "estimator": {
+      "surrogate": "transverse contraction rate gamma = -(1/(H*dt_eff)) log sigma_max(Phi); Phi is the ordered product of per-step difference maps (exact, no integration noise).",
+      "fhn": "tail-mean inter-layer error E12 over the last sync_tail_frac of the run.",
+      "identifiability": "precision/recall of past-only active-link recovery; contraction_corr_same_realization."
+    },
+    "test_or_ci": "per-seed paired differences over the EVALUATION seed block (8 seeds) -> mean, std, and a bootstrap 95% CI (n_boot=2000, boot_seed=20260713, resampling seeds with replacement). The bootstrap CI, not an underpowered sign test, is the frozen inferential rule (8 evaluation seeds cannot reach sign-test p<0.05).",
+    "decision_rule": "band = max(3*pooled_std_across_eval_seeds, min_effect_size_floor). PASS iff mean_paired_diff > band AND bootstrap_ci95_low > 0. FAIL iff mean_paired_diff < -band AND bootstrap_ci95_high < 0. Otherwise INCONCLUSIVE (reason_code=TIE if |mean| <= band).",
+    "tie_rule": "TIE (reason_code=TIE) iff |mean paired diff| <= band. Ties are never rounded into PASS.",
+    "min_effect_size": {"surrogate_gamma_floor": 0.02, "fhn_E12_floor": 0.02, "n_boot": 2000, "boot_seed": 20260713,
+                        "note": "band = max(3*pooled_std, floor). PASS must clear the band AND have a bootstrap CI excluding 0."},
+    "gate_hierarchy": "G1_weak is a precondition for interpreting G1_strict. G2 is interpreted only if G1_weak PASSes. No gate borrows another's data. Comparisons are pre-registered; no post-hoc metric selection.",
+    "multiplicity": "few pre-registered comparisons; no correction beyond the pre-registration itself, and no selection among comparators after seeing results.",
+    "failed_run_handling": "a seed whose simulation raises or returns non-finite is recorded as FAILED for that gate; if >20% of a gate's seeds fail, the gate verdict is EXECUTION_INVALID (never silently dropped)."
+  },
+  "best_static_policy": {
+    "admissible_space": "static graphs using exactly N_IL active mirror pairs (same instantaneous edge budget as the switching arms).",
+    "identical_budget": "N_IL pairs, held for the full horizon H; same kappa; same operator family.",
+    "optimization_algorithm": "argmax of gamma over candidate static subsets = {all K base snapshots} UNION {best_static_search random N_IL-subsets}.",
+    "selection_seeds": "seed_blocks.paired_selection ONLY: the winning static SUBSET is chosen to maximize mean gamma across the SELECTION operators.",
+    "evaluation_seeds": "seed_blocks.paired_evaluation ONLY (disjoint from selection): the pre-selected subset's gamma and the switching arms' gamma are computed here, and the paired G1_strict contrast is formed here.",
+    "overfitting_prevention": "the static subset is FROZEN after the selection phase and never re-chosen on the evaluation operators; selection and evaluation seed sets are disjoint."
+  },
+  "g0a_cost_rule": {
+    "frozen_before_measurement": true,
+    "max_wall_time_seconds": 86400,
+    "max_cpu_ram_note": "single machine, <= all cores, <= 32 GB RAM; if exceeded, stop.",
+    "mandatory_minimum_size": 200,
+    "minimum_completed_seeds": 3,
+    "timeout_rule": "on wall-time or resource limit, STOP; write a report with verdict=INCONCLUSIVE, reason_code=INCONCLUSIVE_BY_COST, and the list of completed (size, T_swt, seed) cells.",
+    "partial_grid_rule": "a partial/incomplete grid may NEVER be interpreted as PASS or FAIL; only INCONCLUSIVE(INCONCLUSIVE_BY_COST).",
+    "checkpoint_rule": "checkpoints record ALL completed cells append-only; no cell may be excluded to obtain a favorable verdict; the verdict is computed from the full completed set only.",
+    "no_cost_after_results": "the budget above is frozen here and may not be revised after observing any G0A output."
+  },
+  "gates": {
+    "G0A_exact_reproduction": {"goal": "Reproduce the paper regime (sigma_12=0.1) at paper-scale N.",
+      "estimand": "frac_synced per (N, T_swt)", "outcomes": ["PASS", "FAIL", "INCONCLUSIVE"],
+      "accept": "PASS iff fast (T_swt<=25) syncs (frac>=0.5) AND slow (T_swt>=120) does not, across completed cells meeting the cost rule."},
+    "G0B_calibrated_demonstration": {"goal": "Calibrated small-N demonstration (sigma_12=1.5).",
+      "estimand": "frac_synced per T_swt", "outcomes": ["PASS", "FAIL"],
+      "label": "CALIBRATED_QUALITATIVE_DEMONSTRATION (NOT reproduction)",
+      "accept": "DEMONSTRATED(=PASS) iff fast T_swt<=10 syncs AND slow T_swt>=160 does not.",
+      "forbidden_claim": "no N-dependence of the switching threshold without a multi-N switching grid."},
+    "G0C_msf_minimal": {"goal": "Minimal transverse Lyapunov, anti-phase channels only.",
+      "estimand": "Psi(sigma, T_swt)", "outcomes": ["PASS", "FAIL", "INCONCLUSIVE", "EXECUTION_INVALID"],
+      "accept": "PASS iff fastest T_swt has a Psi<0 region AND the onset depends on T_swt; Psi<0 but no dependence -> INCONCLUSIVE(PARTIAL_NO_TSWT_DEPENDENCE); no Psi<0 -> FAIL; channels not anti-phase -> EXECUTION_INVALID(PREREQ_FAIL)."},
+    "G1_weak": {"goal": "Switching beats static-sparse of equal instantaneous density.",
+      "estimand": "gamma_fast - gamma_static_sparse (paired, evaluation seeds)",
+      "accept": "PASS iff mean paired diff > min_effect_size AND paired test p<0.05; TIE within band; else FAIL",
+      "outcomes": ["PASS", "FAIL", "INCONCLUSIVE"]},
+    "G1_strict": {"goal": "Switching beats the average graph AND the best admissible static (same budget).",
+      "estimand": "best_switch_gamma - max(gamma_average, gamma_best_static) (paired, evaluation seeds; best_static selected on selection seeds)",
+      "accept": "PASS iff mean paired diff > min_effect_size AND p<0.05; TIE within band; else FAIL",
+      "prior": "the fast arm is NOT expected to beat the average (averaging theory); any advantage is expected at intermediate rates (Zhang-Strogatz) -> separate branch.",
+      "outcomes": ["PASS", "FAIL", "INCONCLUSIVE"]},
+    "G2_order": {"goal": "Temporal order changes contraction beyond rate/density/average.",
+      "estimand": "|gamma_ordered - gamma_shuffled_order| at intermediate rate (paired) and the non-constant shuffled_dwell null",
+      "accept": "PASS iff order effect > min_effect_size AND p<0.05; else INCONCLUSIVE with reason_code=TIE (evidence favors aggregate connectivity)",
+      "outcomes": ["PASS", "INCONCLUSIVE"]},
+    "G3_robustness": {"goal": "Robustness of the G1_weak advantage to IMPLEMENTED stresses only.",
+      "estimand": "advantage = gamma_fast - gamma_static per stage (paired)",
+      "accept": "PASS iff faithful & mild-heterogeneity advantage>0 with p<0.05; else INCONCLUSIVE(LIMITED); signed stage with no negative weight -> EXECUTION_INVALID(STRESS_NOT_IMPLEMENTED)",
+      "outcomes": ["PASS", "INCONCLUSIVE", "EXECUTION_INVALID"]},
+    "G4_identifiability": {"goal": "Recover switching from observations, past-only, same-realization ground truth.",
+      "estimand": "precision, recall, contraction_corr_same_realization (synchronous variant)",
+      "accept": "PASS iff precision>0.6 AND recall>0.6 AND contraction_corr>0.5 AND basis estimator beats the factor-confounded one; else FAIL",
+      "async_language": "asynchrony/LOCF (Epps-like) degradation, NOT a causal Epps demonstration",
+      "outcomes": ["PASS", "FAIL"]}
+  },
+  "removed_gates": {"H3": "coverage-vs-reachability isolation removed (confounds >1 variable); temporal_reachability_ratio reported as a descriptor only."},
+  "reporting_requirements": {
+    "every_report_must_embed": ["prereg_canonical_hash", "prereg_file_sha256",
+      "execution_contract_canonical_hash", "execution_contract_file_sha256",
+      "freeze_content_hash", "runner_sha256", "source_commit", "freeze_commit",
+      "freeze_tag", "runtime_head", "environment", "seeds", "params", "criterion"],
+    "atomicity": "atomic write, refuse overwrite and stale .tmp, *_v2.json names, no silent H//dwell+1, log any capped/dropped coverage."
+  }
+}

@@ -19,7 +19,7 @@ REPORT = "g0c_msf_v2.json"
 
 
 def _cfg(ctx):
-    return ctx.prereg["gates"][GATE], ctx.prereg["seed_blocks"]["g0c_msf"], ctx.prereg["global"]["dt"]
+    return ctx.execution["g0c"], ctx.prereg["seed_blocks"]["g0c_msf"], ctx.prereg["global"]["dt"]
 
 
 def plan(ctx):

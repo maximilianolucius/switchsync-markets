@@ -1,9 +1,8 @@
 # Synthetic Pre-Registration v2 (corrected, executable — NOT YET EXECUTED)
 
 **Contract file:** `experiments/configs/synthetic_prereg_v2.json`
-**Canonical config hash:** `be52bf962e0923ff12cf6cd7fc30231b68d77f6fce99f3ec2b986c4d144d0e09`
-**Config file SHA-256:** `1e63787a4f303fefdd20342d684678f2d86b91edfab20ca78ab1aed7435758c2`
-**History:** the contract was finalized for execution in P1.2 by adding the `surrogate_paired` block (concrete paired-construction grid for G1/G2/G3). The earlier P1.1 hash (canonical `7e5f1536…`, file `2607…`), frozen under the *prereg/module* tag `switchsync-synthetic-prereg-v2-freeze`, is retained as history; the hashes above are the ones the v2 runners require and that the **execution** freeze records.
+**Canonical config hash:** `7e5f1536e848bf53e3803217a00fff2cee0963d71af5099711ec7463283831d7`
+**Config file SHA-256:** `2607961200a280e4097a6289787fd063a97e3e4d770747f992492be66410517e`
 **Supersedes:** `synthetic_prereg_v1.md` / `.json` (canonical `abbd95…`, file `6d19cf5…`).
 **Audit basis:** `docs/audits/p1_v1_independent_audit.md` (defects D1–D13).
 **Status:** frozen for execution but **NOT executed**. Synthetic only; no real data.
