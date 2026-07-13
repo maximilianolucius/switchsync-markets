@@ -1,0 +1,34 @@
+{
+  "config_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+  "environment": {
+    "packages": {
+      "matplotlib": "3.10.9",
+      "numpy": "2.4.4",
+      "scipy": "1.17.1"
+    },
+    "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+    "python": "3.14.3"
+  },
+  "files": {
+    "experiments/configs/synthetic_prereg_v1.json": "6d19cf5aa3408c8c18e93fa835fecf8464654943e0fbe4e957007f03e28d5941",
+    "src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/dynamics/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/dynamics/fhn.py": "bc408dc8701ec173bc92d46376bd8190a8914c718f23c176657eae966651ff60",
+    "src/metrics/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/metrics/baselines.py": "f5c2f2690cd507b54d0c46716095b8d234a46d63c174c35eacf8b9b11b7ee47f",
+    "src/metrics/lyapunov.py": "6591ddf640c3d08ed909cb758524c1dffdb1cd66474564aafc421ffef8a0841f",
+    "src/metrics/propagator.py": "98c3bc7b1be14755fdf198f7523700f66334b87fc1eaae36e16111ca128421a2",
+    "src/metrics/sync.py": "7ce6038a7653eff8f3be3e5373944976ec82e5a69989201991e05f56a403ef79",
+    "src/networks/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/networks/ring.py": "2c55433c690b0b7e02721deb19670fe4f1daa5ce373db1b54ca6f4690a51a802",
+    "src/networks/switching.py": "fbd8090200819313572454dbbb06febad2e7468222ab3250c0751cf1a228876e",
+    "src/networks/temporal_metrics.py": "85663869eb690c8d72a182b966d67675476213b17a41ed9b09c56af9fddfed5d",
+    "src/simulation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/simulation/double_layer.py": "d9c8e31a55a9bafa0cb15cc42253ab0b77685dbebbbf86ae1c2a1669722b95b7",
+    "src/simulation/linear_surrogate.py": "e77abfd3cea340f891c4e3c85de91d577e2b0b8db055a0f6e2a6ecda9d78ee67",
+    "src/validation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/validation/checks.py": "e20304a82b282125ec32e41831a894984adbb3e7c1679ce91491f1dcaab66493",
+    "src/validation/freeze.py": "7689fb8686d12c538199c6409917ceca066fbf04687b4a24edc668f5932b0585"
+  },
+  "n_files": 19
+}

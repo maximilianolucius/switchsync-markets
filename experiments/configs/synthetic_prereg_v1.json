@@ -1,0 +1,117 @@
+{
+  "contract_name": "switchsync-synthetic-prereg-v1",
+  "contract_version": 1,
+  "description": "Frozen pre-registration for SwitchSync Markets P1 synthetic experiments. NO real market data is used anywhere in this contract.",
+  "global": {
+    "dt": 0.01,
+    "integrator": "rk4_fixed_step",
+    "ic_range": [-2.0, 2.0]
+  },
+  "fhn": {
+    "eps": 0.05,
+    "a_odd": 0.87,
+    "a_even": 0.97,
+    "phi_expr": "pi/2 - 0.1",
+    "sigma_intra": 0.1,
+    "radius": 1,
+    "density_ratio": 0.25,
+    "note_sigma_inter": "sigma_12=1.5 is used for the double-layer reproduction. This DIFFERS from the paper's 0.1 (used at N=400). Reason: inter-layer coupling acts only on the activator and the transverse spectrum is N-dependent; at our tractable N the sync threshold for 25%-density switching sits near sigma_12~1.0-1.5. The reproduction target is QUALITATIVE (Gate G0), not the absolute threshold. Documented in engel_paper_audit.md and financial_translation_audit.md."
+  },
+  "chaos_check": {
+    "sizes": [40, 100, 200],
+    "dt": 0.01,
+    "n_steps": 30000,
+    "transient_steps": 3000,
+    "renorm_every": 5,
+    "acceptance": "lambda_max > 0 at all sizes (paper reports ~0.04)"
+  },
+  "reproduction": {
+    "N": 40,
+    "N_IL": 10,
+    "sigma_inter": 1.5,
+    "total_time": 800.0,
+    "record_every": 25,
+    "T_swt_grid": [2.0, 5.0, 10.0, 20.0, 40.0, 80.0, 160.0, 300.0],
+    "seeds": [11, 12, 13, 14, 15],
+    "sync_threshold_E12": 0.02,
+    "sync_tail_frac": 0.25,
+    "acceptance_G0": "For sigma_inter=1.5: fast switching (T_swt<=10) synchronizes (tail E12<0.02) in a majority of seeds AND slow switching (T_swt>=160) does not; maximum T_swt that synchronizes is finite and decreases relative to fastest.",
+    "failure_G0": "Fast switching fails to synchronize, OR slow synchronizes as readily as fast."
+  },
+  "causal_fhn": {
+    "N": 40,
+    "N_IL": 10,
+    "sigma_inter": 1.5,
+    "total_time": 800.0,
+    "record_every": 25,
+    "T_swt_fast": 5.0,
+    "T_swt_slow": 300.0,
+    "seeds": [21, 22, 23],
+    "controls": ["fast", "slow", "static_sparse", "average_graph", "shuffled_order", "repeated_subset"]
+  },
+  "msf_minimal": {
+    "N": 2,
+    "lam_perp": 2.0,
+    "dt": 0.01,
+    "n_steps": 40000,
+    "transient_steps": 3000,
+    "renorm_every": 5,
+    "sigma_grid": [0.05, 0.15, 0.3, 0.5, 0.8],
+    "T_swt_grid": [11.0, 25.0, 100.0],
+    "seeds": [31],
+    "note": "Reproduces the sign structure of the minimal-system transverse Lyapunov exponent (paper Psi). Coarse grid."
+  },
+  "surrogate_causal": {
+    "N": 24,
+    "N_IL": 6,
+    "kappa": 0.6,
+    "rho_target": 1.04,
+    "intra_coupling": 0.06,
+    "horizon_steps": 240,
+    "dwell_fast": 2,
+    "dwell_intermediate": 12,
+    "dwell_slow": 60,
+    "seeds": [41, 42, 43, 44, 45],
+    "schedules": ["fast", "intermediate", "slow", "static_sparse", "average_graph", "shuffled_order_fast", "shuffled_order_intermediate", "shuffled_dwell_intermediate", "repeated_subset_fast", "high_sweep_low_reach_fast", "no_coupling"],
+    "acceptance_G1": "fast contraction rate gamma exceeds static_sparse and slow by a margin > 3 pooled std across seeds.",
+    "acceptance_G2": "shuffled_order at INTERMEDIATE dwell changes gamma by more than the seed-noise band relative to ordered intermediate; if not, record that evidence favors aggregate connectivity over temporal order.",
+    "note_average_graph": "average_graph = static with per-pair weight = occupancy (=density_ratio). Per the brief, switching must BEAT the average graph to count as an isolated mechanism. Fast-switching/averaging theory predicts fast switching APPROACHES the average graph; we report the sign of (gamma_fast - gamma_average) honestly."
+  },
+  "surrogate_stages": {
+    "N": 24,
+    "N_IL": 6,
+    "kappa": 0.6,
+    "rho_target": 1.04,
+    "intra_coupling": 0.06,
+    "horizon_steps": 240,
+    "dwell_fast": 2,
+    "dwell_slow": 60,
+    "seeds": [51, 52, 53],
+    "stages": [
+      {"name": "faithful", "heterogeneity": 0.0, "directed": false, "signed": false},
+      {"name": "mild_heterogeneity", "heterogeneity": 0.05, "directed": false, "signed": false},
+      {"name": "strong_heterogeneity", "heterogeneity": 0.2, "directed": false, "signed": false},
+      {"name": "directed", "heterogeneity": 0.05, "directed": true, "signed": false},
+      {"name": "signed", "heterogeneity": 0.05, "directed": false, "signed": true}
+    ],
+    "acceptance_G3": "fast-switching contraction advantage over static_sparse persists (gamma_fast - gamma_static > 0) through mild heterogeneity; record the stage at which it disappears."
+  },
+  "identifiability": {
+    "N": 24,
+    "N_IL": 6,
+    "kappa": 0.6,
+    "rho_target": 1.04,
+    "intra_coupling": 0.06,
+    "horizon_steps": 600,
+    "dwell_fast": 6,
+    "seeds": [61, 62, 63, 64, 65],
+    "obs_noise": 0.05,
+    "factor_scale": 1.0,
+    "estimator_window": 8,
+    "estimator": "rolling_basis_ar1_coefficient",
+    "remove_common_factor": true,
+    "async_variants": [[1, 1], [1, 3]],
+    "acceptance_G4": "estimated active-link precision AND recall > 0.6 out-of-sample (causal, no future data), and estimated contraction correlates with true contraction (Pearson > 0.5); factor-induced false links stay below precision floor.",
+    "failure_G4": "precision or recall <= 0.5, or common-factor removal is required to avoid pervasive false links AND still fails."
+  }
+}
