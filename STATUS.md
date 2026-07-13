@@ -38,6 +38,22 @@ A positive G0 did **not** imply positive B or C — as the project design antici
 
 **NO-GO for a predictive/operational empirical study.** **Conditional-GO only for a falsification/bounding study** (test whether temporal switching carries information beyond density + average graph + common factor + DCC, with a strong prior that it does not, and identifiability as the binding constraint). Any empirical phase requires a new explicit authorization and must touch no real data until then. See `docs/methodology/empirical_stage_proposal.md`.
 
+## v1-audit addendum (2026-07-13, phase P1.1)
+
+The v1 gate table above is **preserved as the historical v1 record** but is superseded by the independent audit `docs/audits/p1_v1_independent_audit.md`. Corrected dispositions:
+
+| Gate | v1 verdict (above) | Post-audit disposition |
+|---|---|---|
+| G0 | PASS | **DOWNGRADED_TO_CALIBRATED_DEMONSTRATION** (σ_12=1.5 was hand-tuned; split into G0A exact / G0B calibrated / G0C MSF in v2) |
+| G1 / G2 | PASS / AGG_CONNECTIVITY | **SUPERSEDED_PENDING_PAIRED_RERUN** (unpaired arms, horizons 242/252/300, no-op dwell null; recorded PASS contradicted the artifact) |
+| G3 signed | PASS | **INVALID** (signed stage produced no negative weights) |
+| H3 | (informational) | **INVALID** (controls confound coverage and reachability); removed as a gate in v2 |
+| G4 | FAIL | **FAIL_SUPPORTED_BY_PRECISION_RECALL_ONLY**; `contraction_corr` **INVALID** (independent trajectory) |
+| MSF | PARTIAL | **INVALID** (channels driven in the same phase) |
+| freeze v1 | ok | **NONEXECUTABLE_AS_SCIENTIFIC_FREEZE** (omits runners/tests; blind to added files; two conflated hashes) |
+
+**GO/NO-GO recommendation — softened.** The v1 statement of a "strong prior that switching does not beat aggregate connectivity" is **withdrawn**: it rested on a confounded contrast and on the time-average (not the best admissible static) as comparator, and Zhang–Strogatz (2021) show a budget-constrained, curvature-driven advantage can exist at intermediate rates. The current position is **NO-GO for any predictive/empirical study**, and the *scientific* open questions (G1-strict, G2, and the intermediate-rate advantage) are **UNRESOLVED pending the v2 paired reruns**, not settled negatively. Identifiability (G4) remains the binding constraint on the empirical side.
+
 ## Artifacts
 
 - Reports: `experiments/reports/*.json` (atomic, all stamped with the frozen hash); index in `experiments/registry.csv`.

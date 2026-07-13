@@ -60,7 +60,13 @@ python3 run_msf.py                            # minimal-system transverse Lyapun
 python3 make_figures.py                       # figures from saved artifacts only
 ```
 
-Environment is pinned in `requirements.lock.txt` and `python-version.txt`. Determinism: explicit seeds everywhere; no module runs experiments on import; results are never overwritten.
+**Environment.** Exact freeze interpreter: **Python 3.14.3** (`python-version.txt`); dependencies pinned exactly in `requirements.lock.txt`. CI runs the **3.14** minor line — a patch-level difference is a *compatible* version, not the exact freeze interpreter; only 3.14.3 with the pinned packages reproduces the freeze hashes bit-for-bit. Determinism: explicit seeds everywhere; no module runs experiments on import; results are never overwritten.
+
+**CI / license status.** A GitHub Actions workflow (`.github/workflows/ci.yml`) installs `requirements.lock.txt` and runs the test suite. Its remote result is **not yet verified** (no push has occurred), so no "CI passing" claim is made here. The repository has **no license yet** — see `docs/LICENSE_BLOCKER.md`; choosing one is a pending owner decision and none has been invented.
+
+## v1 audit and v2 contract
+
+P1 v1 was independently audited (`docs/audits/p1_v1_independent_audit.md`): 13 defects, with v1 results re-classified (G0 → calibrated demonstration; G1/G2 → superseded pending paired rerun; G3-signed and H3 → invalid; G4 → FAIL on precision/recall only, its `contraction_corr` invalid; MSF → invalid; freeze v1 → non-executable). Original v1 reports are preserved byte-for-byte with `*.superseded.json` sidecars. The corrected, executable contract is `docs/methodology/synthetic_prereg_v2.md` (+ `.json`), **not yet executed**. A separate, unexecuted branch (`docs/methodology/intermediate_rate_temporal_advantage_prereg_v1.md`), motivated by Zhang–Strogatz (2021), tests whether an intermediate-rate temporal advantage over the best admissible static network exists.
 
 ## Interpretation discipline (enforced throughout)
 

@@ -1,0 +1,15 @@
+{
+  "audit_commit_base": "e2fff2aaccb36f74112439df62fffdba2e7fbbd6",
+  "audit_document": "docs/audits/p1_v1_independent_audit.md",
+  "defect_refs": [
+    "D5",
+    "D4"
+  ],
+  "disposition": "SUPERSEDED_PENDING_PAIRED_RERUN",
+  "note": "The original v1 report is preserved byte-for-byte; this sidecar records supersession only.",
+  "original_verdict": "PASS",
+  "reason": "FHN G1 uses unpaired schedules and the same average-graph confound as the surrogate; direction plausible but not a controlled verdict.",
+  "retained_valid": "",
+  "superseded_file_sha256": "06e80e30bd955ba3531ec35b4662321d2d74ae864f8611e4055e5e2f07e26d94",
+  "supersedes": "experiments/reports/causal_fhn_g1.json"
+}

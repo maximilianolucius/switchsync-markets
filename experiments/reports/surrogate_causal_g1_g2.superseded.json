@@ -1,0 +1,16 @@
+{
+  "audit_commit_base": "e2fff2aaccb36f74112439df62fffdba2e7fbbd6",
+  "audit_document": "docs/audits/p1_v1_independent_audit.md",
+  "defect_refs": [
+    "D4",
+    "D5",
+    "D6"
+  ],
+  "disposition": "SUPERSEDED_PENDING_PAIRED_RERUN",
+  "note": "The original v1 report is preserved byte-for-byte; this sidecar records supersession only.",
+  "original_verdict": "PASS",
+  "reason": "Rate arms unpaired and on horizons 242/252/300 (not 240); shuffled_dwell is a no-op; recorded PASS contradicts the artifact's beats_average_graph=False. Requires paired schedules with identical horizon before any G1/G2 verdict stands.",
+  "retained_valid": "",
+  "superseded_file_sha256": "f4d48feb74cb30345dde1377e649fd1ca3b527a567cfee760ca0810c75198d10",
+  "supersedes": "experiments/reports/surrogate_causal_g1_g2.json"
+}

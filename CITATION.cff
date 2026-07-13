@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as below. This is synthetic-only research; results are not evidence about real markets."
+title: "SwitchSync Markets: can dynamic link switching induce synchronization in sparse financial networks? (synthetic P0-P1)"
+abstract: >-
+  A synthetic, pre-registered study auditing whether the link-switching
+  synchronization mechanism of Eser, Medeiros, Riza & Engel (arXiv:2507.08007)
+  admits a mathematically faithful and empirically identifiable translation to
+  financial temporal networks. No real market data is used.
+type: software
+authors:
+  - name: "SwitchSync Markets project (repository owner)"
+    website: "https://github.com/maximilianolucius/switchsync-markets"
+repository-code: "https://github.com/maximilianolucius/switchsync-markets"
+keywords:
+  - synchronization
+  - temporal networks
+  - link switching
+  - master stability function
+  - financial networks
+  - FitzHugh-Nagumo
+version: "p1-v2-prereg"
+references:
+  - type: article
+    authors:
+      - family-names: Eser
+        given-names: "Muhittin Cenk"
+      - family-names: Medeiros
+        given-names: "Everton S."
+      - family-names: Riza
+        given-names: Mustafa
+      - family-names: Engel
+        given-names: Maximilian
+    title: "Dynamic link switching induces stable synchronized states in sparse networks"
+    year: 2026
+    notes: "arXiv:2507.08007v2 (nlin.AO). The inspiring paper audited by this project."
+  - type: article
+    authors:
+      - family-names: Zhang
+        given-names: Yuanzhao
+      - family-names: Strogatz
+        given-names: "Steven H."
+    title: "Designing temporal networks that synchronize under resource constraints"
+    journal: "Nature Communications"
+    volume: 12
+    year: 2021
+    doi: "10.1038/s41467-021-23446-9"

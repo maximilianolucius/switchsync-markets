@@ -1,0 +1,127 @@
+{
+  "contract_name": "switchsync-synthetic-prereg-v2",
+  "contract_version": 2,
+  "supersedes": "synthetic_prereg_v1.json",
+  "description": "Corrected, executable pre-registration for SwitchSync Markets P1 v2. Fixes audit defects D1-D13 (docs/audits/p1_v1_independent_audit.md). NO real market data anywhere. NOT YET EXECUTED.",
+  "provenance": {
+    "audit_document": "docs/audits/p1_v1_independent_audit.md",
+    "v1_contract_canonical_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+    "v1_contract_file_sha256": "6d19cf5aa3408c8c18e93fa835fecf8464654943e0fbe4e957007f03e28d5941"
+  },
+  "global": {
+    "dt": 0.01,
+    "integrator": "rk4_fixed_step",
+    "ic_range": [-2.0, 2.0]
+  },
+  "fhn": {
+    "eps": 0.05, "a_odd": 0.87, "a_even": 0.97, "phi_expr": "pi/2 - 0.1",
+    "sigma_intra": 0.1, "radius": 1, "density_ratio": 0.25
+  },
+  "seed_blocks": {
+    "chaos": [7],
+    "g0b": [11, 12, 13, 14, 15],
+    "g0c_msf": [31],
+    "paired_causal": [41, 42, 43, 44, 45, 46, 47, 48],
+    "stages": [51, 52, 53, 54, 55],
+    "identifiability": [61, 62, 63, 64, 65]
+  },
+  "tolerances": {
+    "sync_threshold_E12": 0.02,
+    "sync_tail_frac": 0.25,
+    "gamma_significance_std_mult": 3.0,
+    "tie_band_note": "differences within gamma_significance_std_mult * pooled_std across seeds are declared TIES (neither PASS nor FAIL for that comparison)."
+  },
+  "statistical_tests": {
+    "paired_contrast": "per-seed paired difference; report mean, std, and a paired sign/Wilcoxon test across the seed block; significance requires |mean| > 3*pooled_std AND paired test p<0.05.",
+    "multiple_comparison_note": "gate comparisons are pre-registered and few; no post-hoc selection permitted."
+  },
+  "gates": {
+    "G0A_exact_reproduction": {
+      "goal": "Reproduce the paper's regime (sigma_12=0.1) at paper-scale N.",
+      "sizes": [100, 200, 400],
+      "sigma_inter": 0.1,
+      "density_ratio": 0.25,
+      "T_swt_grid": [11.0, 23.0, 50.0, 120.0],
+      "total_time": 4000.0,
+      "outcomes": ["PASS", "FAIL", "INCONCLUSIVE_BY_COST"],
+      "rule": "If compute budget forbids N>=200 at T=4000, declare INCONCLUSIVE_BY_COST. G0A must NEVER be silently replaced by G0B.",
+      "cost_flag": "EXPENSIVE: N=400, T=4000, dt=0.01 => 400k steps on 1600-dim state x grid x seeds."
+    },
+    "G0B_calibrated_demonstration": {
+      "goal": "Calibrated small-N demonstration of the fast-vs-slow mechanism.",
+      "N": 40, "N_IL": 10, "sigma_inter": 1.5, "total_time": 800.0,
+      "record_every": 25,
+      "T_swt_grid": [2.0, 5.0, 10.0, 20.0, 40.0, 80.0, 160.0, 300.0],
+      "label": "CALIBRATED_QUALITATIVE_DEMONSTRATION (sigma_12=1.5 chosen for tractable N, NOT the paper's 0.1)",
+      "outcomes": ["DEMONSTRATED", "NOT_DEMONSTRATED"],
+      "forbidden_claim": "must NOT assert an N-dependence of the switching threshold unless the switching grid is run across multiple N (a separate, unbudgeted sub-experiment)."
+    },
+    "G0C_msf_minimal": {
+      "goal": "Minimal-system transverse Lyapunov with CORRECT anti-phase channels.",
+      "module": "src/dynamics/msf_switching.py:smooth_square_gamma_v2",
+      "N": 2, "lam_perp": 2.0, "alpha": 5.0,
+      "sigma_grid": [0.05, 0.15, 0.3, 0.5, 0.8],
+      "T_swt_grid": [11.0, 25.0, 100.0, 135.0],
+      "prerequisite_tests": ["channels anti-phase", "gamma0+gamma1~=1 outside transitions", "offset=T_swt", "alternation within period"],
+      "outcomes": ["PASS", "PARTIAL", "INVALID_IF_PREREQ_FAIL"],
+      "note": "The minimal FHN layer at N=2 is a limit cycle (lambda_max~0, v1-verified); a T_swt-dependent boundary may still not appear. Record honestly; do not overclaim."
+    },
+    "G1_weak": {
+      "goal": "Switching beats a static-sparse graph of equal instantaneous density.",
+      "comparator": "static_sparse (same N_IL, same seed base snapshots)",
+      "metric": "transverse contraction rate gamma (surrogate) and tail E12 (FHN)",
+      "accept": "gamma_fast - gamma_static > 3*pooled_std AND paired test p<0.05",
+      "outcomes": ["PASS", "FAIL", "TIE"]
+    },
+    "G1_strict": {
+      "goal": "Switching beats BOTH the average graph AND the best admissible static network under the same edge budget.",
+      "comparators": {
+        "average_graph": "static with per-pair weight = occupancy (identical for all paired arms)",
+        "best_admissible_static": "argmax over static sparse sets of size N_IL (search: all base snapshots + a bounded random search of K_search=200 sets per seed) of the transverse contraction rate"
+      },
+      "accept": "gamma_best_switching_rate - max(gamma_average, gamma_best_static) > 3*pooled_std AND paired test p<0.05",
+      "prior": "Fast-switching averaging theory implies the FAST arm will NOT beat the average graph. A temporal advantage, if any, is expected at INTERMEDIATE rates (Zhang-Strogatz 2021) and is the subject of a separate branch.",
+      "outcomes": ["PASS", "FAIL", "TIE"]
+    },
+    "G2_order": {
+      "goal": "Temporal order changes contraction beyond rate/density/average, using PAIRED schedules.",
+      "construction": "src/networks/paired_switching.py: same base snapshots, exact horizon H=240, identical average operator; shuffled_order permutes epoch order; shuffled_dwell operates on a genuinely non-constant frozen dwell distribution (variable_dwell_schedule).",
+      "accept": "|gamma_ordered - gamma_shuffled_order| > 3*pooled_std at the intermediate rate AND paired test p<0.05",
+      "outcomes": ["PASS", "AGG_CONNECTIVITY_IF_TIE", "FAIL"]
+    },
+    "G3_robustness": {
+      "goal": "Robustness of the G1-weak advantage to IMPLEMENTED stresses only.",
+      "stages": [
+        {"name": "faithful", "heterogeneity": 0.0, "directed": false, "signed": false},
+        {"name": "mild_heterogeneity", "heterogeneity": 0.05, "directed": false, "signed": false},
+        {"name": "strong_heterogeneity", "heterogeneity": 0.2, "directed": false, "signed": false},
+        {"name": "directed", "heterogeneity": 0.05, "directed": true, "signed": false},
+        {"name": "signed", "heterogeneity": 0.05, "directed": false, "signed": true}
+      ],
+      "signed_operator": "src/simulation/surrogate_v2.py:build_basis_operator_v2 (GENUINE negative weights, budget preserved, >=1 strictly negative asserted)",
+      "accept": "advantage (gamma_fast - gamma_static) > 0 with paired test p<0.05 per stage; record the first stage where it vanishes.",
+      "outcomes": ["PASS", "LIMITED", "INVALID_IF_STRESS_NOT_IMPLEMENTED"]
+    },
+    "G4_identifiability": {
+      "goal": "Recover the true switching from observations using ONLY past data, with SAME-realization ground truth.",
+      "simulator": "src/simulation/surrogate_v2.py:simulate_observed_v2 (records d_true, the same-realization latent basis)",
+      "N": 24, "N_IL": 6, "kappa": 0.6, "rho_target": 1.04, "intra_coupling": 0.06,
+      "horizon_steps": 600, "dwell_fast": 6, "estimator_window": 8,
+      "obs_noise": 0.05, "factor_scale": 1.0,
+      "async_variants": [[1, 1], [1, 3]],
+      "estimators": ["rolling_basis_ar1 (factor-free, past-only)", "level_correlation (factor-confounded baseline)"],
+      "metrics": ["precision", "recall", "contraction_corr_same_realization"],
+      "accept": "precision AND recall > 0.6 (synchronous) AND contraction_corr_same_realization > 0.5; basis estimator must beat the factor-confounded one.",
+      "async_language": "report as 'asynchrony/LOCF (Epps-like) degradation', NOT a causal demonstration of the Epps effect.",
+      "outcomes": ["PASS", "FAIL"]
+    }
+  },
+  "removed_from_v1": {
+    "H3_coverage_vs_reachability_isolation": "REMOVED as a gate. A single-variable separation of coverage and reachability is not achievable for the mirror-pair matching structure without changing >1 variable. temporal_reachability_ratio is retained and REPORTED as a descriptor alongside node_sweep, with no isolation claim."
+  },
+  "outcome_vocabulary": ["PASS", "FAIL", "INCONCLUSIVE", "INCONCLUSIVE_BY_COST", "TIE", "INVALID", "DEMONSTRATED", "NOT_DEMONSTRATED", "LIMITED", "AGG_CONNECTIVITY_IF_TIE"],
+  "reporting_requirements": {
+    "every_report_must_include": ["config_canonical_hash", "config_file_sha256", "freeze_content_hash", "runner_file_sha256", "git_commit_sha"],
+    "atomicity": "atomic write, refuse-overwrite, no silent H//dwell+1, log any dropped/capped coverage."
+  }
+}

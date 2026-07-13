@@ -1,0 +1,14 @@
+{
+  "audit_commit_base": "e2fff2aaccb36f74112439df62fffdba2e7fbbd6",
+  "audit_document": "docs/audits/p1_v1_independent_audit.md",
+  "defect_refs": [
+    "D8"
+  ],
+  "disposition": "PARTIAL: signed stage INVALID; heterogeneity/directed re-scoped to v2",
+  "note": "The original v1 report is preserved byte-for-byte; this sidecar records supersession only.",
+  "original_verdict": "PASS",
+  "reason": "The 'signed' stage produced only 0/positive weights (never negative), so the signed robustness claim is invalid. Heterogeneity and directed stages are re-scoped, not invalidated.",
+  "retained_valid": "",
+  "superseded_file_sha256": "1070d5aabd4f1593dc55071d9381dddb364cb03690af8df34e608a35f3edebdf",
+  "supersedes": "experiments/reports/surrogate_stages_g3.json"
+}

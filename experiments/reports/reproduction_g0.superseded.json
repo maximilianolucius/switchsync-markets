@@ -1,0 +1,14 @@
+{
+  "audit_commit_base": "e2fff2aaccb36f74112439df62fffdba2e7fbbd6",
+  "audit_document": "docs/audits/p1_v1_independent_audit.md",
+  "defect_refs": [
+    "D12"
+  ],
+  "disposition": "DOWNGRADED_TO_CALIBRATED_DEMONSTRATION",
+  "note": "The original v1 report is preserved byte-for-byte; this sidecar records supersession only.",
+  "original_verdict": "PASS",
+  "reason": "sigma_inter=1.5 was chosen exploratorily vs the paper's 0.1; valid as a calibrated small-N demonstration (G0B), not as exact-paper reproduction (G0A). The N-dependence claim requires a switching grid across N that was not run.",
+  "retained_valid": "chaos check lambda_max>0 at N=40/100/200 remains valid.",
+  "superseded_file_sha256": "7edc2032305027b2f3933fd480ce1fdecbf86b01e04e951282ef5cfc097ef397",
+  "supersedes": "experiments/reports/reproduction_g0.json"
+}
