@@ -1,0 +1,134 @@
+{
+  "config_canonical_hash": "be52bf962e0923ff12cf6cd7fc30231b68d77f6fce99f3ec2b986c4d144d0e09",
+  "config_file_sha256": "1e63787a4f303fefdd20342d684678f2d86b91edfab20ca78ab1aed7435758c2",
+  "config_rel": "experiments/configs/synthetic_prereg_v2.json",
+  "content_hash": "cbd56bef1c9ce801701a5aa9992f24c7dabcd1bfd39f480069a4330e3ac2a643",
+  "environment": {
+    "packages": {
+      "matplotlib": "3.10.9",
+      "numpy": "2.4.4",
+      "scipy": "1.17.1"
+    },
+    "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+    "python": "3.14.3"
+  },
+  "files": {
+    ".github/workflows/ci.yml": "cca5cae061f8c8d774a63de5f71173f9bcfe3bbd025c75f65a3729223ae29e8a",
+    "CITATION.cff": "0b4145ab99717687d18240c477f3f96bd7d45b25b61b577e02ad444987e7df53",
+    "SECURITY.md": "9b7564e0fcedd554a54b365b74ca960adba5be0033f5dbd3cd2e4d78816120ca",
+    "conftest.py": "e00454f30a574d13170814f6e35c69865395c51c6ced4d05116a81278b3e290e",
+    "docs/LICENSE_BLOCKER.md": "0f2ee76cdf2dc3f12c32fdfebfe88b73884227ec649f91fd05c66a2d4a128893",
+    "docs/audits/p1_v1_independent_audit.md": "641c3c096983644796272392e41e3a53ddbd39259e9396e3200c9d9f64ccc2ce",
+    "docs/methodology/intermediate_rate_temporal_advantage_prereg_v1.md": "7dcbb2d4098b1f1214dec4f19715a0bf3c6c2a0a88ec5fa2c7d5d3501bcbf390",
+    "docs/methodology/synthetic_prereg_v2.md": "d9a62587f08d042585a84de4a7b6e6cc17ab6cf300e35ee897a7b62d191ef813",
+    "docs/research/source_ledger.csv": "a9b7a5cbe4f37e376e215370eb1a2289f1575c813947b1d01c8a77d26807ce99",
+    "experiments/_common.py": "139e35edda5478a0efead510140ca2543b230a0bf2ef5a8bf702badde451fa51",
+    "experiments/_contract_v2.py": "a98f8d3279f0624f9eace58d0d37566c9c29f971e15432d02afec2a2b2e39f37",
+    "experiments/_repro_common_v2.py": "77f901fea06260b679038aa93fa0a631f28f5ffabfe8aefb22732c6e071811a7",
+    "experiments/configs/synthetic_prereg_v1.json": "6d19cf5aa3408c8c18e93fa835fecf8464654943e0fbe4e957007f03e28d5941",
+    "experiments/configs/synthetic_prereg_v2.json": "1e63787a4f303fefdd20342d684678f2d86b91edfab20ca78ab1aed7435758c2",
+    "experiments/make_figures.py": "72fe8e26de7325b74fa88a09e4b2d4af610b451ce2a0bf2c7723bace47e1bf29",
+    "experiments/reports/causal_fhn_g1.superseded.json": "ba25b5da203ca82f60c359c8e58b2a47e4852552cf977bfd1f01cde04abc1eca",
+    "experiments/reports/identifiability_g4.superseded.json": "3e7136c84639575b271080f7546c50ddc83d0ffe5dd545cfc92c1c8b24d129aa",
+    "experiments/reports/msf_minimal.superseded.json": "939254162db4af3462f65deeebcdb6e4880df2001094d9fb9ab26263b26fa114",
+    "experiments/reports/reproduction_g0.superseded.json": "58bbfa63a951e7a3a3afa192afe7298c289e8620f6d67ed0d488ac0228bfb60c",
+    "experiments/reports/surrogate_causal_g1_g2.superseded.json": "2b2f9b9f2f19b65865fb0094c262a4bdd8f18d421372ab08e2f14af407e3b13a",
+    "experiments/reports/surrogate_stages_g3.superseded.json": "abf3442d00e758a776d78e9dbc087c9433821f7a0fd86e5dedae2fbe5d6a0bcd",
+    "experiments/run_causal_fhn.py": "227d1a69fe78b564e47e6e94c574591680fd232bf87c319cf68b8f8e8f5c32fe",
+    "experiments/run_freeze.py": "4477e9aa9a0d8da89c07822c9dd52691a43592550570b52d2b36177a8a2664f2",
+    "experiments/run_freeze_execution_v2.py": "4c10d2a810310c81bc98c762971620a76d79b74a6b3e7304ff79195e97497920",
+    "experiments/run_freeze_v2.py": "9dc7b78c4d86bf514ac792044a61dac793dc30bd3ebc917de027bf9d346ebe0b",
+    "experiments/run_g0a_exact_v2.py": "a7edefedfc9534eb1df649f7925979697df6dcdc72e32342f9b6cd83c95d27ad",
+    "experiments/run_g0b_calibrated_v2.py": "7855d8108be675be8bf414ee9d7c012264b30b2d0299f10f66db935d9451aabf",
+    "experiments/run_g0c_msf_v2.py": "2a2e8ac296ce55a26423508e0b4386159d8726328b28da65c49292c8fde3e7fa",
+    "experiments/run_g1_g2_paired_v2.py": "7369fb5b9d9b377c45ecfca873b09f5b759fdc8375d6e35815447c503640556b",
+    "experiments/run_g3_v2.py": "92c8bf337c54fabefcd4002b5d371c8eb9a25bb0b667af56cbb070e05d73d4a4",
+    "experiments/run_g4_v2.py": "084b48e2fcc39d16d3c326d7cdbb29afcf5df9cb4847793cc3b48e011c9e9f8a",
+    "experiments/run_identifiability.py": "1bfb2f6837e567adee7e49ea5174eaadc4d4e6c180f1cfee0ce7bd666c473998",
+    "experiments/run_msf.py": "b5f7030ce9c8c8c0b67e92572bc1f77e1c11750424e1c8404b8cc0e3342f163c",
+    "experiments/run_reproduction.py": "672451aa6050bcb04fc7ebdd3b4dca02215fa10f851ad1adafaf2cce89f03681",
+    "experiments/run_suite_v2.py": "9bf9f7302dccae7117c22cb7c9c6d1307c78b643d9c29bc157284dc715604823",
+    "experiments/run_surrogate_causal.py": "0c68177c5e57a2902e20e6d6cde7a16788e14f9ad963987820bdca2493e1379f",
+    "experiments/run_surrogate_stages.py": "0ee4a7cff80bc3aaf037f582e969cb4c7b129873a716b45dfd6c36786b2d542f",
+    "python-version.txt": "25c3049ed7f825e0565baa3279c7e5218335801d85737ffddce1b39e394d8793",
+    "requirements.lock.txt": "bb3cf53c5ce32ef83f2fa346ad6efbd433d01f3fc20fa37e11e3c0b022fd6cbe",
+    "src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/dynamics/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/dynamics/fhn.py": "bc408dc8701ec173bc92d46376bd8190a8914c718f23c176657eae966651ff60",
+    "src/dynamics/msf_switching.py": "9b20d0526f40c76c3d5850515c7b28882f8f1b46f4b87ce6b0838bfcd7ac3815",
+    "src/metrics/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/metrics/baselines.py": "f5c2f2690cd507b54d0c46716095b8d234a46d63c174c35eacf8b9b11b7ee47f",
+    "src/metrics/identifiability.py": "7f8bbadf80d8dd078dda228b7b96595daa33e2e7d5d083aaeea29847ebfc671e",
+    "src/metrics/lyapunov.py": "6591ddf640c3d08ed909cb758524c1dffdb1cd66474564aafc421ffef8a0841f",
+    "src/metrics/propagator.py": "98c3bc7b1be14755fdf198f7523700f66334b87fc1eaae36e16111ca128421a2",
+    "src/metrics/sync.py": "7ce6038a7653eff8f3be3e5373944976ec82e5a69989201991e05f56a403ef79",
+    "src/networks/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/networks/paired_switching.py": "0b2b5bbb3207a662d313649b89f1caa35d01efcb56458611b9a20251ba8b5d91",
+    "src/networks/ring.py": "2c55433c690b0b7e02721deb19670fe4f1daa5ce373db1b54ca6f4690a51a802",
+    "src/networks/switching.py": "fbd8090200819313572454dbbb06febad2e7468222ab3250c0751cf1a228876e",
+    "src/networks/temporal_metrics.py": "85663869eb690c8d72a182b966d67675476213b17a41ed9b09c56af9fddfed5d",
+    "src/simulation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/simulation/double_layer.py": "d9c8e31a55a9bafa0cb15cc42253ab0b77685dbebbbf86ae1c2a1669722b95b7",
+    "src/simulation/linear_surrogate.py": "e77abfd3cea340f891c4e3c85de91d577e2b0b8db055a0f6e2a6ecda9d78ee67",
+    "src/simulation/surrogate_v2.py": "94a19cabd58025422d972349e549940319543d379e3a2daca6d443c95d310beb",
+    "src/validation/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "src/validation/checks.py": "e20304a82b282125ec32e41831a894984adbb3e7c1679ce91491f1dcaab66493",
+    "src/validation/freeze.py": "7689fb8686d12c538199c6409917ceca066fbf04687b4a24edc668f5932b0585",
+    "src/validation/freeze_v2.py": "28851dbc999821645eaca755065021a820295d031bd6cd2cb05e01314dcde1c5",
+    "tests/test_freeze_v2.py": "45cbb429f6419097d4aaa0312fae671e07463c8a2b0b8e1e8c3aaf4b132750ac",
+    "tests/test_guards.py": "2aea5ab08ae1ea0261733cbf90c31efd4416e79cfc8f47b3fe9b15abc607bae4",
+    "tests/test_metric_invariances.py": "50b8175df68c2db8ce23b812ff7fa3b6c8a9f8c3aaa7ac833088a830e5acdfe1",
+    "tests/test_no_side_effects_and_overwrite.py": "b75766f74dca58dda249c8e468151378b17cc57833c7330dbd8cc57eb04a6fab",
+    "tests/test_ring_and_fhn.py": "3c83d305e876ce061579afb8ba520e670c6e9f3ad16b893816cb6a0fef44a719",
+    "tests/test_v2_corrections.py": "c44794935696474d7c08a704f1e40bcd682ca8b9dd5d5f0a1e55d7e99b22c02c",
+    "tests/test_v2_runners.py": "9dfafa444be38779c906e591e807e372708fea70ce4970b5bdc29f2eb0ffb160"
+  },
+  "git_commit": "00a4c44548d706ef85de8438d3d2c01b4b96ff11",
+  "manifest_version": 2,
+  "n_files": 69,
+  "pdf_rel": "docs/research/sources/eser2025_arxiv_2507.08007v2.pdf",
+  "pdf_sha256": "0774a03c9c5f84fa1c6bb6c70a1a13345b23e3e3ecf5cb37a4b882b085e442e6",
+  "tracked_spec": {
+    "files": [
+      "requirements.lock.txt",
+      "python-version.txt",
+      "conftest.py",
+      "experiments/configs/synthetic_prereg_v2.json",
+      "experiments/configs/synthetic_prereg_v1.json",
+      "docs/methodology/synthetic_prereg_v2.md",
+      "docs/methodology/intermediate_rate_temporal_advantage_prereg_v1.md",
+      "docs/audits/p1_v1_independent_audit.md",
+      "docs/research/source_ledger.csv",
+      "docs/LICENSE_BLOCKER.md",
+      "CITATION.cff",
+      "SECURITY.md",
+      ".github/workflows/ci.yml",
+      "experiments/reports/reproduction_g0.superseded.json",
+      "experiments/reports/causal_fhn_g1.superseded.json",
+      "experiments/reports/surrogate_causal_g1_g2.superseded.json",
+      "experiments/reports/surrogate_stages_g3.superseded.json",
+      "experiments/reports/identifiability_g4.superseded.json",
+      "experiments/reports/msf_minimal.superseded.json"
+    ],
+    "roots": [
+      {
+        "dir": "src",
+        "ext": [
+          ".py"
+        ]
+      },
+      {
+        "dir": "experiments",
+        "ext": [
+          ".py"
+        ]
+      },
+      {
+        "dir": "tests",
+        "ext": [
+          ".py"
+        ]
+      }
+    ]
+  }
+}
