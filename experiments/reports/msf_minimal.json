@@ -1,0 +1,41 @@
+{
+  "config_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+  "evaluation": {
+    "boundary_depends_on_Tswt": false,
+    "fast_has_stable_region": true,
+    "note": "switched coupling produces transverse contraction (Psi<0), but the stability boundary does NOT depend on T_swt in this minimal build: the N=2 isolated layer is a limit cycle (lambda_max~0, verified), so the transverse mode does not expand during off-phases and any coupling contracts. The paper's slow-switching instability at N=2 is NOT reproduced here. The switching-TIME dependence is instead reproduced by the large-N direct simulation (Gate G0).",
+    "onset_sigma_by_Tswt": {
+      "11.0": 0.05,
+      "25.0": 0.05,
+      "100.0": 0.05
+    },
+    "verdict": "PARTIAL"
+  },
+  "experiment": "msf_minimal",
+  "gate": "G0-support",
+  "grid": {
+    "100.0": {
+      "0.05": -0.00854489640972336,
+      "0.15": -0.02837834066100372,
+      "0.3": -0.0584346258547024,
+      "0.5": -0.09925305461850535,
+      "0.8": -0.1626821082058841
+    },
+    "11.0": {
+      "0.05": -0.008341853891591724,
+      "0.15": -0.027821244147344944,
+      "0.3": -0.057496645948159945,
+      "0.5": -0.09816589630717625,
+      "0.8": -0.16251158908430027
+    },
+    "25.0": {
+      "0.05": -0.008234244837923283,
+      "0.15": -0.027454724490067882,
+      "0.3": -0.056618426947289795,
+      "0.5": -0.09632411680833589,
+      "0.8": -0.15839044067265445
+    }
+  },
+  "summary": "{11.0: 0.05, 25.0: 0.05, 100.0: 0.05}",
+  "verdict": "PARTIAL"
+}

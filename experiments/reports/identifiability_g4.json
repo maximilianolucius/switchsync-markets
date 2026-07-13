@@ -1,0 +1,35 @@
+{
+  "config_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+  "evaluation": {
+    "false_link_gap": 0.14420289855072466,
+    "note": "basis (venue-difference) estimator removes the common factor by construction; the level-correlation estimator inflates precision-loss via factor-induced false links, demonstrated by the gap",
+    "synchronous": {
+      "basis_precision": 0.34576365663322184,
+      "basis_recall": 0.34576365663322184,
+      "contraction_corr": 0.21749272067765704,
+      "levelcorr_precision": 0.20156075808249718,
+      "levelcorr_recall": 0.20156075808249718
+    },
+    "verdict": "FAIL"
+  },
+  "experiment": "identifiability_g4",
+  "gate": "G4",
+  "results": {
+    "async_1_1": {
+      "basis_precision": 0.34576365663322184,
+      "basis_recall": 0.34576365663322184,
+      "contraction_corr": 0.21749272067765704,
+      "levelcorr_precision": 0.20156075808249718,
+      "levelcorr_recall": 0.20156075808249718
+    },
+    "async_1_3": {
+      "basis_precision": 0.25852842809364546,
+      "basis_recall": 0.25852842809364546,
+      "contraction_corr": -0.0651093854442781,
+      "levelcorr_precision": 0.24788182831661096,
+      "levelcorr_recall": 0.24788182831661096
+    }
+  },
+  "summary": "{'basis_precision': 0.34576365663322184, 'basis_recall': 0.34576365663322184, 'levelcorr_precision': 0.20156075808249718, 'levelcorr_recall': 0.20156075808249718, 'contraction_corr': 0.21749272067765704}",
+  "verdict": "FAIL"
+}

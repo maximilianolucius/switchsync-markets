@@ -1,0 +1,143 @@
+{
+  "config_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+  "evaluation": {
+    "G1": {
+      "beats_average_graph": false,
+      "fast_minus_average": -0.14188842909719954,
+      "fast_minus_slow": 0.13469791806384346,
+      "fast_minus_static": 0.1416062248754934,
+      "matches_average_graph": false,
+      "note": "switching beats static-sparse of equal instantaneous density and beats slow switching; relation to the average graph is reported by sign of fast_minus_average",
+      "verdict": "PASS"
+    },
+    "G2": {
+      "note": "order effect within seed band at this rate: evidence favors aggregate connectivity over temporal order (per brief G2)",
+      "order_effect_intermediate": 0.0034908061370542234,
+      "verdict": "AGG_CONNECTIVITY"
+    },
+    "band_3std": 0.014012823592369859,
+    "isolation": {
+      "coverage_effect_fast_minus_repeated": 0.14294738246704156,
+      "reachability_effect_fast_minus_highsweep": 0.14715300325144925
+    }
+  },
+  "experiment": "surrogate_causal_g1_g2",
+  "gate": "G1/G2",
+  "results": {
+    "aggregate": {
+      "average_graph": {
+        "mean": 0.2531692936827899,
+        "std": 0.017402694735569806
+      },
+      "fast": {
+        "mean": 0.11128086458559036,
+        "std": 0.00829481455702189
+      },
+      "high_sweep_low_reach_fast": {
+        "mean": -0.03587213866585888,
+        "std": 1.4373693888455156e-05
+      },
+      "intermediate": {
+        "mean": 0.002954908119078201,
+        "std": 0.0023900839128734863
+      },
+      "no_coupling": {
+        "mean": -0.039220713153280226,
+        "std": 0.0
+      },
+      "repeated_subset_fast": {
+        "mean": -0.031666517881451195,
+        "std": 0.004229787013471206
+      },
+      "shuffled_dwell_intermediate": {
+        "mean": 0.002954908119078201,
+        "std": 0.0023900839128734863
+      },
+      "shuffled_order_fast": {
+        "mean": 0.10726879629875237,
+        "std": 0.007320453635857574
+      },
+      "shuffled_order_intermediate": {
+        "mean": -0.0005358980179760225,
+        "std": 0.004130949429370332
+      },
+      "slow": {
+        "mean": -0.023417053478253104,
+        "std": 0.0014712893278975461
+      },
+      "static_sparse": {
+        "mean": -0.030325360289903052,
+        "std": 0.003735822953199029
+      }
+    },
+    "per_seed": {
+      "41": {
+        "average_graph": 0.26184752575369546,
+        "fast": 0.11908126591260837,
+        "high_sweep_low_reach_fast": -0.035860336924784644,
+        "intermediate": 0.0018460749175111934,
+        "no_coupling": -0.039220713153280226,
+        "repeated_subset_fast": -0.035780955044257545,
+        "shuffled_dwell_intermediate": 0.0018460749175111934,
+        "shuffled_order_fast": 0.11368582273586703,
+        "shuffled_order_intermediate": 0.005302071496039727,
+        "slow": -0.020922702378223242,
+        "static_sparse": -0.030271155329185496
+      },
+      "42": {
+        "average_graph": 0.24124120282451303,
+        "fast": 0.10377443703494824,
+        "high_sweep_low_reach_fast": -0.03587413297180744,
+        "intermediate": 0.0022622576698212364,
+        "no_coupling": -0.039220713153280226,
+        "repeated_subset_fast": -0.03344706091995431,
+        "shuffled_dwell_intermediate": 0.0022622576698212364,
+        "shuffled_order_fast": 0.10374993922955175,
+        "shuffled_order_intermediate": -0.005591587859824738,
+        "slow": -0.022831399639966478,
+        "static_sparse": -0.03211641675960179
+      },
+      "43": {
+        "average_graph": 0.2358291937516158,
+        "fast": 0.09945960196693161,
+        "high_sweep_low_reach_fast": -0.03585291735801453,
+        "intermediate": 0.0019004732474730392,
+        "no_coupling": -0.039220713153280226,
+        "repeated_subset_fast": -0.023543304707796753,
+        "shuffled_dwell_intermediate": 0.0019004732474730392,
+        "shuffled_order_fast": 0.11778941185536164,
+        "shuffled_order_intermediate": -0.0038996775832503437,
+        "slow": -0.02469405948860781,
+        "static_sparse": -0.03519083304983965
+      },
+      "44": {
+        "average_graph": 0.2832635860510856,
+        "fast": 0.12025741916072924,
+        "high_sweep_low_reach_fast": -0.035893687395770146,
+        "intermediate": 0.007674011682605875,
+        "no_coupling": -0.039220713153280226,
+        "repeated_subset_fast": -0.03211450342559776,
+        "shuffled_dwell_intermediate": 0.007674011682605875,
+        "shuffled_order_fast": 0.10317372762002756,
+        "shuffled_order_intermediate": 0.003103760643674081,
+        "slow": -0.025026556009250057,
+        "static_sparse": -0.02377590043362339
+      },
+      "45": {
+        "average_graph": 0.24366496003303945,
+        "fast": 0.1138315988527343,
+        "high_sweep_low_reach_fast": -0.03587961867891765,
+        "intermediate": 0.0010917230779796607,
+        "no_coupling": -0.039220713153280226,
+        "repeated_subset_fast": -0.033446765309649615,
+        "shuffled_dwell_intermediate": 0.0010917230779796607,
+        "shuffled_order_fast": 0.09794508005295378,
+        "shuffled_order_intermediate": -0.0015940567865188394,
+        "slow": -0.023610549875217948,
+        "static_sparse": -0.030272495877264934
+      }
+    }
+  },
+  "summary": "G1=PASS G2=AGG_CONNECTIVITY",
+  "verdict": "PASS"
+}

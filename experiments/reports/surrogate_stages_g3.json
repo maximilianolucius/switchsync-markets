@@ -1,0 +1,51 @@
+{
+  "config_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+  "evaluation": {
+    "first_stage_without_advantage": null,
+    "note": "advantage = gamma_fast - gamma_static (>0 means switching helps)",
+    "stages_with_advantage": [
+      "faithful",
+      "mild_heterogeneity",
+      "strong_heterogeneity",
+      "directed",
+      "signed"
+    ],
+    "verdict": "PASS"
+  },
+  "experiment": "surrogate_stages_g3",
+  "gate": "G3",
+  "results": {
+    "directed": {
+      "advantage_mean": 0.14625974670701677,
+      "advantage_std": 0.0021946671949624546,
+      "gamma_fast_mean": 0.09396469137376186,
+      "gamma_static_mean": -0.052295055333254924
+    },
+    "faithful": {
+      "advantage_mean": 0.13820804475466034,
+      "advantage_std": 0.0069778172272223875,
+      "gamma_fast_mean": 0.11010052814655147,
+      "gamma_static_mean": -0.02810751660810887
+    },
+    "mild_heterogeneity": {
+      "advantage_mean": 0.16365316045245473,
+      "advantage_std": 0.01685034696593723,
+      "gamma_fast_mean": 0.1314653796130579,
+      "gamma_static_mean": -0.03218778083939685
+    },
+    "signed": {
+      "advantage_mean": 0.17810580103762255,
+      "advantage_std": 0.016098910364133495,
+      "gamma_fast_mean": 0.1497747790230705,
+      "gamma_static_mean": -0.02833102201455208
+    },
+    "strong_heterogeneity": {
+      "advantage_mean": 0.23514881059163542,
+      "advantage_std": 0.0656237324376555,
+      "gamma_fast_mean": 0.2045304912388224,
+      "gamma_static_mean": -0.030618319352813044
+    }
+  },
+  "summary": "{'verdict': 'PASS', 'stages_with_advantage': ['faithful', 'mild_heterogeneity', 'strong_heterogeneity', 'directed', 'signed'], 'first_stage_without_advantage': None, 'note': 'advantage = gamma_fast - gamma_static (>0 means switching helps)'}",
+  "verdict": "PASS"
+}

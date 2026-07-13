@@ -1,0 +1,113 @@
+{
+  "chaos_check": {
+    "100": 0.010845939013048107,
+    "200": 0.0210241567311079,
+    "40": 0.018236014782752785,
+    "all_positive": true
+  },
+  "config_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+  "experiment": "reproduction_g0",
+  "gate": "G0",
+  "reproduction": {
+    "rows": [
+      {
+        "T_swt": 2.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 1.15917888897962e-15,
+        "time_to_sync": [
+          42.2,
+          39.0,
+          81.0,
+          55.2,
+          42.8
+        ]
+      },
+      {
+        "T_swt": 5.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 1.29524959997532e-15,
+        "time_to_sync": [
+          53.0,
+          48.5,
+          52.5,
+          66.8,
+          66.8
+        ]
+      },
+      {
+        "T_swt": 10.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 3.6328947632748605e-10,
+        "time_to_sync": [
+          83.5,
+          97.5,
+          90.8,
+          136.2,
+          84.0
+        ]
+      },
+      {
+        "T_swt": 20.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 2.1817511076721015e-05,
+        "time_to_sync": [
+          166.8,
+          118.0,
+          208.5,
+          239.8,
+          223.0
+        ]
+      },
+      {
+        "T_swt": 40.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 0.002756645637170663,
+        "time_to_sync": [
+          642.2,
+          319.2,
+          729.8,
+          576.5,
+          403.5
+        ]
+      },
+      {
+        "T_swt": 80.0,
+        "frac_synced": 0.6,
+        "mean_tail_E12": 0.02871809903343578,
+        "time_to_sync": [
+          649.5,
+          323.0,
+          null,
+          null,
+          705.0
+        ]
+      },
+      {
+        "T_swt": 160.0,
+        "frac_synced": 0.2,
+        "mean_tail_E12": 0.07708148405941877,
+        "time_to_sync": [
+          null,
+          502.5,
+          null,
+          null,
+          null
+        ]
+      },
+      {
+        "T_swt": 300.0,
+        "frac_synced": 0.2,
+        "mean_tail_E12": 0.0683029395364754,
+        "time_to_sync": [
+          null,
+          673.0,
+          null,
+          null,
+          null
+        ]
+      }
+    ]
+  },
+  "summary": "chaos confirmed; fast switching synchronizes, slow does not",
+  "verdict": "PASS"
+}

@@ -1,0 +1,63 @@
+{
+  "config_hash": "abbd95154d3fba0c417d7bdbd70752e225a01e4e2d14d33291cab039ec883e82",
+  "evaluation": {
+    "average_graph_E12": 5.553363582550421e-16,
+    "avg_graph_minus_fast": -1.7636101940932654e-14,
+    "fast_E12": 1.8191438299187696e-14,
+    "note": "lower E12 = more synchronized; fast should beat static & slow",
+    "slow_E12": 0.11167890169532624,
+    "static_E12": 0.08439058951907773,
+    "verdict": "PASS"
+  },
+  "experiment": "causal_fhn_g1",
+  "gate": "G1",
+  "results": {
+    "aggregate": {
+      "average_graph": {
+        "mean": 5.553363582550421e-16,
+        "std": 2.4547895122044313e-17
+      },
+      "fast": {
+        "mean": 1.8191438299187696e-14,
+        "std": 2.3758366004058846e-14
+      },
+      "shuffled_order_fast": {
+        "mean": 1.2314382918826957e-15,
+        "std": 2.2884289714430174e-16
+      },
+      "slow": {
+        "mean": 0.11167890169532624,
+        "std": 0.033367234404066755
+      },
+      "static_sparse": {
+        "mean": 0.08439058951907773,
+        "std": 0.01382494996852044
+      }
+    },
+    "per_seed": {
+      "21": {
+        "average_graph": 5.327450165749133e-16,
+        "fast": 5.179082800830563e-14,
+        "shuffled_order_fast": 1.3362856319347286e-15,
+        "slow": 0.0818623518483332,
+        "static_sparse": 0.10122300007142535
+      },
+      "22": {
+        "average_graph": 5.438039281402944e-16,
+        "fast": 1.365453611166933e-15,
+        "shuffled_order_fast": 1.4441728459854175e-15,
+        "slow": 0.09491244672131237,
+        "static_sparse": 0.08458811332478545
+      },
+      "23": {
+        "average_graph": 5.894601300499184e-16,
+        "fast": 1.4180332780905216e-15,
+        "shuffled_order_fast": 9.138563977279408e-16,
+        "slow": 0.15826190651633315,
+        "static_sparse": 0.06736065516102234
+      }
+    }
+  },
+  "summary": "{'verdict': 'PASS', 'fast_E12': 1.8191438299187696e-14, 'slow_E12': 0.11167890169532624, 'static_E12': 0.08439058951907773, 'average_graph_E12': 5.553363582550421e-16, 'avg_graph_minus_fast': -1.7636101940932654e-14, 'note': 'lower E12 = more synchronized; fast should beat static & slow'}",
+  "verdict": "PASS"
+}
