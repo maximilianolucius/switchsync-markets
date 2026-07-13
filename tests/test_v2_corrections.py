@@ -132,9 +132,11 @@ def test_v2_msf_offset_is_Tswt_not_2Tswt():
         t = s * dt
         g1_now = 0.5 * (paper_g(t + T_swt, T_swt) + 1.0)
         assert abs(gof(s)[1] - g1_now) < 1e-9
-    # a 2*T_swt shift would reproduce channel 0 (the v1 bug) -> must differ
-    g0 = _sample(gof, 4000, 25)[:, 0]
-    assert np.max(np.abs(g0 - g0)) < 1e-12  # trivially true; documented for clarity
+    # a 2*T_swt shift reproduces channel 0 (the v1 bug); channel 1 (T_swt shift) must
+    # differ from that 2*T_swt-shifted signal for at least some t (non-tautological).
+    two_T = np.array([0.5 * (paper_g(s * dt + 2 * T_swt, T_swt) + 1.0) for s in range(0, 4000, 25)])
+    ch1 = np.array([gof(s)[1] for s in range(0, 4000, 25)])
+    assert np.max(np.abs(ch1 - two_T)) > 0.3  # T_swt-shift is NOT the 2*T_swt-shift
 
 
 def test_v2_msf_signals_alternate_within_period():

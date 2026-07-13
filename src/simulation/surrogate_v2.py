@@ -58,6 +58,7 @@ def build_basis_operator_v2(p: SurrogateParams, rng: np.random.Generator,
 
     # Laplacian-consistent: include the diffusive self-term (diag of intra_coupling*L),
     # so the unsigned/undirected/homogeneous case equals diag(1) + intra_coupling*L.
+    offdiag_frobenius_prescale = float(np.linalg.norm(off))   # BEFORE rescale (sign-flip invariant)
     A = np.diag(base_persist) + p.intra_coupling * diag_L + off
     r = float(np.max(np.abs(np.linalg.eigvals(A))))
     if r > 0:
@@ -71,6 +72,7 @@ def build_basis_operator_v2(p: SurrogateParams, rng: np.random.Generator,
         "n_negative_offdiag": int(np.sum(off_final < -1e-12)),
         "frac_negative_offdiag": float(np.mean(off_final[np.abs(off_final) > 1e-12] < 0))
                                   if np.any(np.abs(off_final) > 1e-12) else 0.0,
+        "offdiag_frobenius_prescale": offdiag_frobenius_prescale,
         "offdiag_frobenius_budget": float(np.linalg.norm(off_final)),
         "spectral_radius": float(np.max(np.abs(np.linalg.eigvals(A)))),
         "symmetric": bool(np.allclose(A, A.T)),

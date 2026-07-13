@@ -72,3 +72,16 @@ The v1 gate table above is **preserved as the historical v1 record** but is supe
 - Reports: `experiments/reports/*.json` (atomic, all stamped with the frozen hash); index in `experiments/registry.csv`.
 - Figures (from artifacts only): `artifacts/figures/{g0_reproduction,g1g2_surrogate_gamma,g3_stages,g4_identifiability}.png`.
 - Freeze manifest: `artifacts/freeze_manifest_v1.json`.
+
+## P1.2-B addendum (pre-execution correction; NOT executed)
+
+Execution freeze v3 (`switchsync-synthetic-execution-v3-freeze`) was independently
+found **NONEXECUTABLE** (`docs/audits/p1_2a_independent_audit.md`) and is SUPERSEDED /
+NEVER RUN. The authoritative, executable contract is now **prereg v4** (canonical
+`847a8a8c…`) + **execution contract v2** (canonical `8738b591…`) + **execution
+freeze v4** (`switchsync-synthetic-execution-v4-freeze`). Fixes: single shared
+inference (exact sign test), selection-seed arm freezing, best-of-frozen-candidate-set
+comparator, permutation-null G2, per-stage inferential G3 with real signed budget
+check, exact-horizon + defined-baseline G4, durable external G0A checkpoint with a
+chunked deadline and frozen quantifiers, and external transactional result custody.
+**No v2/v3/v4 scientific result exists; nothing was executed; no push.**

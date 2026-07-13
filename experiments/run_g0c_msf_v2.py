@@ -46,7 +46,8 @@ def compute(ctx):
         if _prereq_antiphase(N, T_swt, dt) < 0.5:
             return {"gate": GATE, "verdict": "EXECUTION_INVALID",
                     "provenance": provenance(ctx, seeds, g,
-                                             "prerequisite: MSF channels must be anti-phase"),
+                                             "prerequisite: MSF channels must be anti-phase",
+                                             reason_code="PREREQ_FAIL"),
                     "result": {"reason": f"channels not anti-phase at T_swt={T_swt}"}}
 
     grid = {}
@@ -71,16 +72,17 @@ def compute(ctx):
     fast_neg = onset[str(fastest)] is not None
     dependence = len({v for v in onset.values() if v is not None}) > 1
     if not fast_neg:
-        verdict = "FAIL"
+        verdict, reason = "FAIL", None
     elif dependence:
-        verdict = "PASS"
+        verdict, reason = "PASS", None
     else:
-        verdict = "INCONCLUSIVE"   # PARTIAL: Psi<0 but no T_swt dependence
+        verdict, reason = "INCONCLUSIVE", "PARTIAL_NO_TSWT_DEPENDENCE"
     return {"gate": GATE, "verdict": verdict,
             "provenance": provenance(ctx, seeds, g,
                                      "PASS iff fast has Psi<0 region AND onset depends on T_swt; "
-                                     "Psi<0 but no dependence -> INCONCLUSIVE(PARTIAL); "
-                                     "no Psi<0 -> FAIL; prereq fail -> EXECUTION_INVALID"),
+                                     "Psi<0 but no dependence -> INCONCLUSIVE(PARTIAL_NO_TSWT_DEPENDENCE); "
+                                     "no Psi<0 -> FAIL; prereq fail -> EXECUTION_INVALID(PREREQ_FAIL)",
+                                     reason_code=reason),
             "result": {"psi_grid": grid, "onset_sigma_by_Tswt": onset,
                        "boundary_depends_on_Tswt": dependence}}
 

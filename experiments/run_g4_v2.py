@@ -1,9 +1,8 @@
-"""G4 identifiability runner (v2). Same-realization ground truth via
-simulate_observed_v2; past-only AR(1) basis estimator vs factor-confounded
-baseline; contraction correlation against d_true (same realization).
-
-Import-safe. Full run gated by the execution contract. DO NOT run full grids
-without authorization."""
+"""G4 identifiability runner (v2, P1.2-B). Same-realization ground truth; past-only
+estimators. Fixes: exact horizon (schedule.total_steps == H, asserted at runtime);
+PASS requires ALL FOUR frozen conditions including a DEFINED "beats the baseline"
+(per-seed paired precision margin via the shared inference); failed/nonfinite
+seeds handled (>20% -> EXECUTION_INVALID). Import-safe."""
 from __future__ import annotations
 
 import sys
@@ -16,6 +15,7 @@ from src.metrics.identifiability import (
     rolling_basis_ar1_estimator,
     rolling_levelcorr_estimator,
 )
+from src.metrics.inference import paired_decision
 from src.networks.switching import random_switching
 from src.simulation.linear_surrogate import SurrogateParams
 from src.simulation.surrogate_v2 import (
@@ -27,66 +27,104 @@ GATE = "G4_identifiability"
 REPORT = "g4_identifiability_v2.json"
 
 
-def _params(ctx):
-    g = ctx.execution["g4"]                                   # operational grid
-    seeds = ctx.prereg["seed_blocks"]["identifiability"]      # frozen seeds (prereg)
-    return g, seeds
+def _cfg(ctx):
+    return (ctx.execution["g4"], ctx.execution["inference"],
+            ctx.prereg["seed_blocks"]["identifiability"])
 
 
 def plan(ctx):
-    g, seeds = _params(ctx)
-    n = len(seeds) * len(g["async_variants"])
-    return {"gate": GATE, "simulations": n,
+    g, inf, seeds = _cfg(ctx)
+    return {"gate": GATE, "seeds": seeds,
             "params": {k: g[k] for k in ("N", "N_IL", "horizon_steps", "dwell_fast",
-                                         "estimator_window", "obs_noise")},
-            "seeds": seeds,
-            "projected_cost": f"{n} surrogate observation runs of H={g['horizon_steps']} "
-                              f"on N={g['N']} (seconds each); cheap."}
+                                         "estimator_window", "obs_noise", "async_variants")},
+            "conditions": ["precision>0.6", "recall>0.6", "contraction_corr>0.5",
+                           "basis beats factor-confounded baseline (paired margin)"]}
+
+
+def _verdict_from_conditions(conds: dict) -> str:
+    """PASS iff ALL FOUR frozen conditions hold (incl. beats_baseline)."""
+    return "PASS" if all(conds.values()) else "FAIL"
+
+
+def _make_schedule(N, N_IL, H, dwell, seed):
+    if H % dwell != 0:
+        raise ContractError(f"G4 horizon {H} not divisible by dwell {dwell}")
+    n_epochs = H // dwell                      # EXACT horizon (fixes v3 606-for-600 bug)
+    sched = random_switching(N, N_IL, dwell, n_epochs, np.random.default_rng(seed * 7 + 1), "fast")
+    if sched.total_steps != H:
+        raise ContractError(f"G4 schedule total_steps {sched.total_steps} != horizon {H}")
+    return sched
 
 
 def compute(ctx):
-    g, seeds = _params(ctx)
+    g, inf, seeds = _cfg(ctx)
     N, N_IL = g["N"], g["N_IL"]
     H, dwell, W = g["horizon_steps"], g["dwell_fast"], g["estimator_window"]
-    out = {}
+    out, failed_by_variant = {}, {}
+    per_seed_basis_prec = {}   # for the synchronous baseline paired test
+
     for stride in g["async_variants"]:
         key = f"async_{stride[0]}_{stride[1]}"
-        bp, br, lp, lr, cc = [], [], [], [], []
+        rows, failed = [], []
         for seed in seeds:
             p = SurrogateParams(N=N, kappa=g["kappa"], rho_target=g["rho_target"],
-                                intra_coupling=g["intra_coupling"],
-                                obs_noise=g["obs_noise"], factor_scale=g["factor_scale"],
-                                seed_struct=seed)
-            sched = random_switching(N, N_IL, dwell, H // dwell + 1,
-                                     np.random.default_rng(seed * 7 + 1), "fast")
+                                intra_coupling=g["intra_coupling"], obs_noise=g["obs_noise"],
+                                factor_scale=g["factor_scale"], seed_struct=seed)
+            sched = _make_schedule(N, N_IL, H, dwell, seed)   # asserts total_steps == H
             data = simulate_observed_v2(p, sched, np.random.default_rng(seed * 7 + 2),
                                         async_stride=tuple(stride))
+            if not (np.all(np.isfinite(data.p1)) and np.all(np.isfinite(data.p2))):
+                failed.append(seed)
+                continue
             eb = rolling_basis_ar1_estimator(data.p1, data.p2, N_IL, W)
             el = rolling_levelcorr_estimator(data.p1, data.p2, N_IL, W)
-            pbi, rbi = precision_recall(eb, data.active, W)
-            pli, rli = precision_recall(el, data.active, W)
-            bp.append(pbi); br.append(rbi); lp.append(pli); lr.append(rli)
-            cc.append(contraction_corr_same_realization(data, W))
-        out[key] = {"basis_precision": float(np.mean(bp)),
-                    "basis_recall": float(np.mean(br)),
-                    "levelcorr_precision": float(np.mean(lp)),
-                    "levelcorr_recall": float(np.mean(lr)),
-                    "contraction_corr_same_realization": float(np.mean(cc))}
+            pb, rb = precision_recall(eb, data.active, W)
+            pl, rl = precision_recall(el, data.active, W)
+            cc = contraction_corr_same_realization(data, W)
+            if not all(np.isfinite(x) for x in (pb, rb, pl, rl, cc)):
+                failed.append(seed)
+                continue
+            rows.append({"seed": seed, "basis_precision": pb, "basis_recall": rb,
+                         "levelcorr_precision": pl, "levelcorr_recall": rl, "contraction_corr": cc})
+        failed_by_variant[key] = failed
+        if rows:
+            out[key] = {"basis_precision": float(np.mean([r["basis_precision"] for r in rows])),
+                        "basis_recall": float(np.mean([r["basis_recall"] for r in rows])),
+                        "levelcorr_precision": float(np.mean([r["levelcorr_precision"] for r in rows])),
+                        "contraction_corr_same_realization": float(np.mean([r["contraction_corr"] for r in rows]))}
+            if key == "async_1_1":
+                per_seed_basis_prec = {"basis": [r["basis_precision"] for r in rows],
+                                       "levelcorr": [r["levelcorr_precision"] for r in rows]}
+        else:
+            out[key] = None
 
-    sync = out.get("async_1_1")
-    if sync is None:
-        raise ContractError("G4 requires a synchronous async_1_1 variant in the prereg")
-    passed = (sync["basis_precision"] > 0.6 and sync["basis_recall"] > 0.6
-              and sync["contraction_corr_same_realization"] > 0.5)
-    verdict = "PASS" if passed else "FAIL"
-    criterion = ("PASS iff synchronous precision>0.6 AND recall>0.6 AND "
-                 "contraction_corr_same_realization>0.5; async is Epps-like degradation.")
+    # failed-run handling (>20% in the synchronous variant)
+    sync_failed = failed_by_variant.get("async_1_1", [])
+    if len(sync_failed) / len(seeds) > 0.2:
+        return {"gate": GATE, "verdict": "EXECUTION_INVALID",
+                "provenance": provenance(ctx, seeds, g, ">20% failed/nonfinite seeds",
+                                         reason_code="FAILED_RUNS", failures=sync_failed),
+                "result": {"by_async_variant": out, "failed_by_variant": failed_by_variant}}
+
+    sync = out["async_1_1"]
+    # "beats the baseline": per-seed paired precision margin, shared inference, floor=margin
+    margin = [b - l for b, l in zip(per_seed_basis_prec["basis"], per_seed_basis_prec["levelcorr"])]
+    beats = paired_decision(margin, floor=inf["floor_identifiability_margin"],
+                            std_mult=inf["std_mult"], alpha=inf["alpha"],
+                            n_boot=inf["n_boot"], boot_seed=inf["boot_seed"])
+    conds = {"precision_gt_0.6": sync["basis_precision"] > 0.6,
+             "recall_gt_0.6": sync["basis_recall"] > 0.6,
+             "contraction_corr_gt_0.5": sync["contraction_corr_same_realization"] > 0.5,
+             "beats_baseline": beats["verdict"] == "PASS"}
+    verdict = _verdict_from_conditions(conds)
     return {"gate": GATE, "verdict": verdict,
-            "provenance": provenance(ctx, seeds,
-                                     {k: g[k] for k in g if k != "async_variants"},
-                                     criterion),
-            "result": {"by_async_variant": out,
-                       "false_link_gap": sync["basis_precision"] - sync["levelcorr_precision"]}}
+            "provenance": provenance(ctx, seeds, g,
+                                     "PASS iff precision>0.6 AND recall>0.6 AND contraction_corr>0.5 "
+                                     "AND basis beats baseline (paired precision margin, shared rule)",
+                                     failures=sync_failed),
+            "result": {"by_async_variant": out, "conditions": conds,
+                       "beats_baseline_decision": beats,
+                       "failed_by_variant": failed_by_variant}}
 
 
 if __name__ == "__main__":

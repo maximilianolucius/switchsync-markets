@@ -20,14 +20,23 @@ def frac_synced_grid(N, N_IL, sigma_inter, T_swt_grid, total_time, dt, record_ev
     for T_swt in T_swt_grid:
         dwell = int(round(T_swt / dt))
         n_epochs = int(np.ceil(total_time / T_swt)) + 2
-        flags, tails = [], []
+        flags, tails, failed = [], [], []
         for seed in seeds:
             x0 = initial_state(N, np.random.default_rng(1000 + seed))
             sched = random_switching(N, N_IL, dwell, n_epochs,
                                      np.random.default_rng(2000 + seed), f"T{T_swt}")
-            res = simulate(p, sched, cfg, x0)
+            try:
+                res = simulate(p, sched, cfg, x0)
+                if not np.all(np.isfinite(res.e12)):
+                    raise FloatingPointError("non-finite E12")
+            except (FloatingPointError, ValueError):
+                failed.append(int(seed))
+                continue
             flags.append(synchronized(res.e12, threshold, tail_frac))
             tails.append(time_averaged_error(res.e12, 1 - tail_frac))
-        rows.append({"T_swt": float(T_swt), "frac_synced": float(np.mean(flags)),
-                     "mean_tail_E12": float(np.mean(tails))})
+        n = len(seeds)
+        rows.append({"T_swt": float(T_swt),
+                     "frac_synced": float(np.mean(flags)) if flags else None,
+                     "mean_tail_E12": float(np.mean(tails)) if tails else None,
+                     "failed_seeds": failed, "frac_failed": len(failed) / n})
     return rows

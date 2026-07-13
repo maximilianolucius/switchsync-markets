@@ -97,6 +97,22 @@ def assert_paired_invariants(arms: dict[str, Schedule], N: int,
                 f"{name}: occupancy (=> average operator) differs across arms"
 
 
+def order_permutations(sched: Schedule, n_perm: int,
+                       rng: np.random.Generator) -> list[Schedule]:
+    """`n_perm` schedules that permute the epoch ORDER of `sched` (same multiset,
+    dwell, horizon and occupancy). Each permutation uses an independent draw from
+    the supplied generator, so the collection is a frozen, order-invariant null for
+    the G2 permutation test. A permutation equal to the identity is allowed (it is
+    a valid member of the permutation group)."""
+    epochs = list(sched.epochs)
+    out = []
+    for _ in range(n_perm):
+        perm = rng.permutation(len(epochs))
+        out.append(Schedule(sched.N, sched.N_IL, tuple(epochs[i] for i in perm),
+                            f"orderperm[{sched.label}]"))
+    return out
+
+
 def variable_dwell_schedule(base: tuple[tuple[int, ...], ...], N: int, N_IL: int,
                             dwell_multiset: tuple[int, ...], label: str) -> Schedule:
     """Schedule with a genuinely NON-constant, frozen dwell distribution, so that

@@ -82,8 +82,16 @@ def simulate_fixed_gamma(p: FHNParams, gamma: np.ndarray, cfg: SimConfig,
     return SimResult(times[:rec], e12[:rec], None, x, n_steps, label)
 
 
-def simulate(p: FHNParams, sched: Schedule, cfg: SimConfig,
-             x0: np.ndarray) -> SimResult:
+class DeadlineExceeded(Exception):
+    """Raised by simulate() when abort_check() returns True between chunks."""
+
+
+def simulate(p: FHNParams, sched: Schedule, cfg: SimConfig, x0: np.ndarray,
+             chunk_steps: int | None = None, abort_check=None) -> SimResult:
+    """Integrate the FHN double layer. If `chunk_steps` and `abort_check` are given,
+    `abort_check()` is polled every `chunk_steps` integration steps; if it returns
+    True, DeadlineExceeded is raised so a wall-clock deadline can stop a long
+    simulation mid-cell (G0A chunked deadline)."""
     N = p.N
     A_const = build_const_operator(p)
     b = build_const_vector(p)
@@ -115,6 +123,9 @@ def simulate(p: FHNParams, sched: Schedule, cfg: SimConfig,
     rec = 0
 
     for step in range(n_steps):
+        if chunk_steps and abort_check is not None and step > 0 and step % chunk_steps == 0:
+            if abort_check():
+                raise DeadlineExceeded(f"aborted at step {step}/{n_steps}")
         gamma = sched.gamma_at_step(step)
         key = gamma.tobytes()
         if key != cur_gamma_key:
