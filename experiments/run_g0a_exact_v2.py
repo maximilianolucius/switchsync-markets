@@ -13,12 +13,13 @@ Custody: durable hash-chained checkpoint ledger OUTSIDE the repo (crash-recovera
 duplicate-rejecting, truncation-detecting). Import-safe."""
 from __future__ import annotations
 
+import hashlib
 import sys
 import time
 
 import numpy as np
 
-from _contract_v2 import provenance, run_cli
+from _contract_v2 import failure_record, provenance, run_cli
 from _custody import CheckpointLedger
 from src.dynamics.fhn import FHNParams
 from src.metrics.lyapunov import LyapunovDeadlineExceeded, largest_lyapunov_isolated_layer
@@ -55,33 +56,74 @@ def plan(ctx):
 
 
 def gate_verdict(cells, seeds, T_grid, cost, interrupted_by_cost):
-    """Pure verdict from completed cell records (testable independently)."""
+    """Structured verdict (contract F). Distinguishes: failed cell (technical),
+    missing cell, incomplete-by-cost, and success. The INTERRUPTED_BY_COST state
+    record is NOT a scientific cell. Returns (verdict, reason_code, detail)."""
     deciding = cost["deciding_sizes"]
-    switch = {(c["cell"]["N"], c["cell"]["T_swt"], c["cell"]["seed"]): c["result"]
-              for c in cells if c["cell"]["kind"] == "switch"}
-    chaos = {(c["cell"]["N"], c["cell"]["seed"]): c["result"]
-             for c in cells if c["cell"]["kind"] == "chaos"}
-    complete = not interrupted_by_cost
+    nseed = len(seeds)
+    # index only genuine science cells (ignore kind=="state")
+    switch, chaos = {}, {}
+    for c in cells:
+        k = c["cell"]["kind"]
+        if k == "switch":
+            switch[(c["cell"]["N"], c["cell"]["T_swt"], c["cell"]["seed"])] = c["result"]
+        elif k == "chaos":
+            chaos[(c["cell"]["N"], c["cell"]["seed"])] = c["result"]
+
+    def _failed(res):
+        return bool(res.get("failed"))
+
+    # required cells: for each deciding N -> chaos per seed + switch per (T, seed)
+    missing = []
     for N in deciding:
         for s in seeds:
             if (N, s) not in chaos:
-                complete = False
+                missing.append(("chaos", N, None, s))
             for T in T_grid:
                 if (N, T, s) not in switch:
-                    complete = False
-    if not complete:
-        return "INCONCLUSIVE", "INCONCLUSIVE_BY_COST", complete
-    ok = True
+                    missing.append(("switch", N, T, s))
+    if missing:
+        # a missing required cell is cost ONLY when a clean deadline was recorded;
+        # otherwise it is an unexplained missing result -> EXECUTION_INVALID.
+        if interrupted_by_cost:
+            return "INCONCLUSIVE", "INCONCLUSIVE_BY_COST", {"missing": len(missing)}
+        return "EXECUTION_INVALID", "FAILED_RUNS", {"missing_unexplained": missing[:20]}
+
+    # all required cells present: apply the global failed-seed policy per cell
+    def _policy(vals_failed_count, total):
+        # returns "invalid" if >20% failed or 0 successful, else "ok"
+        frac_failed = vals_failed_count / total
+        if frac_failed > 0.2 or (total - vals_failed_count) == 0:
+            return "invalid"
+        return "ok"
+
     for N in deciding:
-        if not all(chaos[(N, s)]["lambda_max"] > 0 for s in seeds):
+        # chaos cell for this size
+        cfail = sum(_failed(chaos[(N, s)]) for s in seeds)
+        if _policy(cfail, nseed) == "invalid":
+            return "EXECUTION_INVALID", "FAILED_RUNS", {"chaos_failed": {"N": N, "n": cfail}}
+        for T in T_grid:
+            sfail = sum(_failed(switch[(N, T, s)]) for s in seeds)
+            if _policy(sfail, nseed) == "invalid":
+                return "EXECUTION_INVALID", "FAILED_RUNS", {"cell_failed": {"N": N, "T": T, "n": sfail}}
+
+    # decide over SUCCESSFUL seeds only (reduced n disclosed via the checkpoint)
+    ok = True
+    disclosure = {}
+    for N in deciding:
+        lam_ok = all(chaos[(N, s)]["lambda_max"] > 0
+                     for s in seeds if not _failed(chaos[(N, s)]))
+        if not lam_ok:
             ok = False
         for T in T_grid:
-            frac = float(np.mean([switch[(N, T, s)]["synced"] for s in seeds]))
+            good = [switch[(N, T, s)]["synced"] for s in seeds if not _failed(switch[(N, T, s)])]
+            frac = float(np.mean(good))
+            disclosure[f"N{N}_T{T}"] = {"frac_synced": frac, "n_successful": len(good)}
             if T <= FAST_MAX and not (frac >= 0.5):
                 ok = False
             if T >= SLOW_MIN and not (frac < 0.5):
                 ok = False
-    return ("PASS" if ok else "FAIL"), None, complete
+    return ("PASS" if ok else "FAIL"), None, {"disclosure": disclosure}
 
 
 def compute(ctx):
@@ -113,10 +155,19 @@ def compute(ctx):
                 cell = {"kind": "chaos", "N": N, "T_swt": None, "seed": seed}
                 if not ledger.has(cell):
                     x0l = np.random.default_rng(seed).uniform(-2, 2, size=2 * N)
-                    lam = largest_lyapunov_isolated_layer(
-                        p, x0l, dt=dt, n_steps=g["chaos_n_steps"],
-                        renorm_every=g["chaos_renorm"], transient_steps=g["chaos_transient"],
-                        chunk_steps=g["chunk_steps"], abort_check=over_budget)
+                    try:
+                        lam = largest_lyapunov_isolated_layer(
+                            p, x0l, dt=dt, n_steps=g["chaos_n_steps"],
+                            renorm_every=g["chaos_renorm"], transient_steps=g["chaos_transient"],
+                            chunk_steps=g["chunk_steps"], abort_check=over_budget)
+                        if not np.isfinite(lam):
+                            raise FloatingPointError("nonfinite lambda_max")
+                    except LyapunovDeadlineExceeded:
+                        raise                                    # cost, not a technical failure
+                    except Exception as e:                       # technical chaos failure
+                        failures.append(failure_record(e, seed, {"kind": "chaos", "N": N}))
+                        ledger.append(cell, {"failed": True, "error": type(e).__name__})
+                        continue
                     ledger.append(cell, {"lambda_max": float(lam)})
             for seed in seeds:
                 for T in g["T_swt_grid"]:
@@ -133,9 +184,12 @@ def compute(ctx):
                     try:
                         res = simulate(p, sched, cfg, x0, chunk_steps=g["chunk_steps"],
                                        abort_check=over_budget)
-                    except (FloatingPointError, ValueError) as e:
-                        from _contract_v2 import failure_record
-                        failures.append(failure_record(e, seed, {"N": N, "T_swt": T}))
+                        if not np.all(np.isfinite(res.e12)):
+                            raise FloatingPointError("nonfinite E12")
+                    except (DeadlineExceeded, LyapunovDeadlineExceeded):
+                        raise                                    # cost path
+                    except Exception as e:                       # technical switch failure
+                        failures.append(failure_record(e, seed, {"kind": "switch", "N": N, "T_swt": T}))
                         ledger.append(cell, {"failed": True, "error": type(e).__name__})
                         continue
                     ledger.append(cell, {
@@ -152,21 +206,25 @@ def compute(ctx):
     # KeyboardInterrupt / any other exception propagates: an external interruption
     # or crash is NOT cost exhaustion and must not become a scientific result.
 
-    cells = [c for c in ledger.completed() if c["cell"]["kind"] in ("chaos", "switch")
-             and not c["result"].get("failed")]
-    verdict, reason, complete = gate_verdict(cells, seeds, g["T_swt_grid"], cost,
-                                             interrupted_by_cost)
+    cp_path = ctx.out_dir / "g0a_checkpoint.jsonl"
+    cp_sha = (hashlib.sha256(cp_path.read_bytes()).hexdigest()
+              if cp_path.exists() else None)
+    verdict, reason, detail = gate_verdict(ledger.completed(), seeds, g["T_swt_grid"],
+                                           cost, interrupted_by_cost)
     return {"gate": GATE, "verdict": verdict,
             "provenance": provenance(ctx, seeds, g,
-                                     "PASS iff EVERY deciding size (200,400) has chaos>0 and ALL "
-                                     "fast T_swt<=25 frac>=0.5 and ALL slow T_swt>=120 frac<0.5; "
-                                     "N=100 non-deciding; deciding sizes run first; clean deadline "
-                                     "-> INCONCLUSIVE_BY_COST; external interruption -> no result",
+                                     "PASS iff EVERY deciding size has chaos>0 and ALL fast "
+                                     "T_swt<=25 frac>=0.5 and ALL slow T_swt>=120 frac<0.5 (over "
+                                     "successful seeds); N=100 non-deciding; deciding sizes first; "
+                                     "clean deadline -> INCONCLUSIVE_BY_COST; missing-without-deadline "
+                                     "or >20% failed -> EXECUTION_INVALID; external interruption -> no result",
                                      reason_code=reason, failures=failures),
-            "result": {"complete": complete, "interrupted_by_cost": interrupted_by_cost,
+            "result": {"interrupted_by_cost": interrupted_by_cost,
                        "n_completed_cells": ledger.n_completed(),
-                       "checkpoint": str(ctx.out_dir / "g0a_checkpoint.jsonl"),
+                       "checkpoint_name": "g0a_checkpoint.jsonl",   # RELATIVE (C.3)
+                       "checkpoint_sha256": cp_sha,
                        "size_order": sizes, "deciding_sizes": cost["deciding_sizes"],
+                       "detail": detail,
                        "label": "EXACT_PAPER_REPRODUCTION (sigma_12=0.1)"}}
 
 

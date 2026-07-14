@@ -221,19 +221,60 @@ class AttemptLock:
             self._fh = None
 
 
+RESERVED = {"attempt_manifest.json", "SEALED"}
+
+
+def _safe_relname(name: str) -> bool:
+    if name in ("", ".", ".."):
+        return False
+    if name.startswith("/") or ".." in Path(name).parts:
+        return False
+    return True
+
+
+def inventory_staging(staging: Path, roles: dict) -> dict:
+    """Build the artifact inventory of a staging dir: for every regular file that
+    is NOT a reserved name, record size, sha256 and a declared role. Rejects
+    symlinks / non-regular files and any file lacking a declared role (unexpected
+    file). Rejects unsafe names. Returns {name: {size, sha256, role}}."""
+    staging = Path(staging)
+    inv = {}
+    for p in sorted(staging.rglob("*")):
+        rel = p.relative_to(staging).as_posix()
+        if rel in RESERVED:
+            raise CheckpointCorrupt(f"reserved name present before sealing: {rel}")
+        if p.is_dir():
+            continue
+        if p.is_symlink() or not p.is_file():
+            raise CheckpointCorrupt(f"non-regular/symlink artifact refused: {rel}")
+        if not _safe_relname(rel):
+            raise CheckpointCorrupt(f"unsafe artifact name: {rel}")
+        if rel not in roles:
+            raise CheckpointCorrupt(f"unexpected (undeclared) artifact: {rel}")
+        data = p.read_bytes()
+        inv[rel] = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                    "role": roles[rel]}
+    missing_roles = set(roles) - set(inv)
+    if missing_roles:
+        raise CheckpointCorrupt(f"declared artifacts missing from staging: {sorted(missing_roles)}")
+    return inv
+
+
 def build_attempt_manifest(*, campaign_id, attempt_id, execution_scope, hashes,
-                           head, tag, normalized_command, runner_shas,
-                           orchestrator_sha, started_utc, ended_utc, exit_status,
-                           reports: dict, checkpoint_sha, gate_verdicts, environment):
+                           head, tag, structured_command, runner_shas,
+                           orchestrator_sha, authorization_token_sha256,
+                           started_utc, ended_utc, exit_status, artifacts: dict,
+                           gate_verdicts, environment):
     body = {
         "campaign_id": campaign_id, "attempt_id": attempt_id,
         "execution_scope": execution_scope, "hashes": hashes,
-        "head": head, "tag": tag, "normalized_command": normalized_command,
+        "head": head, "tag": tag, "structured_command": structured_command,
         "runner_shas": runner_shas, "orchestrator_sha256": orchestrator_sha,
+        "authorization_token_sha256": authorization_token_sha256,
         "started_utc": started_utc, "ended_utc": ended_utc,
-        "exit_status": exit_status, "reports": reports,
-        "checkpoint_sha256": checkpoint_sha, "gate_verdicts": gate_verdicts,
-        "environment": environment, "state": "COMPLETED",
+        "exit_status": exit_status, "artifacts": artifacts,
+        "gate_verdicts": gate_verdicts, "environment": environment,
+        "state": "COMPLETED",
     }
     manifest = dict(body)
     manifest["manifest_content_hash"] = _sha(_canonical(body))
@@ -248,61 +289,92 @@ def _write_fsync(path: Path, text: str) -> None:
 
 
 def seal_and_publish(staging: Path, final: Path, manifest: dict) -> None:
-    """Write the manifest into staging, verify every report SHA, atomically
-    publish staging -> final, then write the SEALED marker and re-verify."""
+    """Write manifest + SEALED INTO staging, fsync, verify the full inventory,
+    then a SINGLE atomic rename staging->final (no final-without-SEAL window).
+    Re-verify the exact inventory afterward."""
     staging, final = Path(staging), Path(final)
     if final.exists():
         raise FileExistsError(f"refusing to overwrite published attempt: {final}")
-    # verify report SHAs against the manifest BEFORE publishing
-    for name, sha in manifest["reports"].items():
+    inv = manifest["artifacts"]
+    # verify each inventoried artifact exists with the right size + hash
+    for name, meta in inv.items():
         p = staging / name
-        if not p.exists():
-            raise FileNotFoundError(f"manifest lists missing report: {name}")
-        actual = hashlib.sha256(p.read_bytes()).hexdigest()
-        if actual != sha:
-            raise CheckpointCorrupt(f"report SHA mismatch before publish: {name}")
+        if not p.exists() or p.is_symlink() or not p.is_file():
+            raise CheckpointCorrupt(f"artifact missing/irregular before publish: {name}")
+        data = p.read_bytes()
+        if len(data) != meta["size"] or hashlib.sha256(data).hexdigest() != meta["sha256"]:
+            raise CheckpointCorrupt(f"artifact size/hash mismatch before publish: {name}")
+    # no undeclared files present
+    for p in staging.rglob("*"):
+        if p.is_file():
+            rel = p.relative_to(staging).as_posix()
+            if rel not in inv and rel not in RESERVED:
+                raise CheckpointCorrupt(f"unexpected file before sealing: {rel}")
+    # write manifest + SEALED INSIDE staging, fsync everything
     _write_fsync(staging / "attempt_manifest.json",
                  json.dumps(manifest, indent=2, sort_keys=True))
-    for p in staging.iterdir():
-        fd = os.open(str(p), os.O_RDONLY)
-        try:
-            os.fsync(fd)
-        finally:
-            os.close(fd)
+    _write_fsync(staging / "SEALED", manifest["manifest_content_hash"] + "\n")
+    for p in staging.rglob("*"):
+        if p.is_file():
+            fd = os.open(str(p), os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
     _fsync_dir(staging)
-    os.replace(staging, final)
+    os.replace(staging, final)          # single atomic publish; SEALED already inside
     _fsync_dir(final.parent)
-    # seal AFTER publication; the marker records the manifest content hash
-    _write_fsync(final / "SEALED", manifest["manifest_content_hash"] + "\n")
-    _fsync_dir(final)
-    # post-seal re-verification of every report hash
-    for name, sha in manifest["reports"].items():
-        actual = hashlib.sha256((final / name).read_bytes()).hexdigest()
-        if actual != sha:
-            raise CheckpointCorrupt(f"post-seal SHA mismatch: {name}")
+    res = verify_sealed_attempt(final)   # post-rename re-verification of the exact inventory
+    if not res["ok"]:
+        raise CheckpointCorrupt(f"post-publish verification failed: {res['errors']}")
 
 
 def verify_sealed_attempt(final: Path) -> dict:
-    """Independently verify a sealed attempt: manifest content hash and every
-    report SHA. Returns {ok, errors}."""
+    """Adversarially verify a sealed attempt. Rejects: tampered manifest/SEALED,
+    corrupt/missing/extra/wrong-size/wrong-hash artifact, symlink or non-regular
+    file, absolute or '..' path. A valid attempt contains EXACTLY
+    attempt_manifest.json, SEALED and the inventoried artifacts."""
     final = Path(final)
     errors = []
     man_p = final / "attempt_manifest.json"
     seal_p = final / "SEALED"
-    if not man_p.exists() or not seal_p.exists():
+    if not man_p.is_file() or not seal_p.is_file():
         return {"ok": False, "errors": ["missing manifest or SEALED marker"]}
-    manifest = json.loads(man_p.read_text())
+    try:
+        manifest = json.loads(man_p.read_text())
+    except Exception as e:
+        return {"ok": False, "errors": [f"manifest not JSON: {e}"]}
     body = {k: v for k, v in manifest.items() if k != "manifest_content_hash"}
-    if _sha(_canonical(body)) != manifest.get("manifest_content_hash"):
+    mh = manifest.get("manifest_content_hash")
+    if _sha(_canonical(body)) != mh:
         errors.append("manifest content hash mismatch")
-    if seal_p.read_text().strip() != manifest.get("manifest_content_hash"):
+    if seal_p.read_text().strip() != mh:
         errors.append("SEALED marker does not match manifest hash")
-    for name, sha in manifest.get("reports", {}).items():
+    inv = manifest.get("artifacts", {})
+    # every inventoried artifact present, regular, correct size + hash
+    for name, meta in inv.items():
+        if not _safe_relname(name):
+            errors.append(f"unsafe artifact name in manifest: {name}"); continue
         p = final / name
         if not p.exists():
-            errors.append(f"missing report {name}")
-        elif hashlib.sha256(p.read_bytes()).hexdigest() != sha:
-            errors.append(f"report SHA mismatch: {name}")
+            errors.append(f"missing artifact {name}"); continue
+        if p.is_symlink() or not p.is_file():
+            errors.append(f"non-regular/symlink artifact {name}"); continue
+        data = p.read_bytes()
+        if len(data) != meta.get("size"):
+            errors.append(f"artifact size mismatch: {name}")
+        if hashlib.sha256(data).hexdigest() != meta.get("sha256"):
+            errors.append(f"artifact SHA mismatch: {name}")
+    # exact inventory: no extra files, no stray symlinks/dirs
+    expected = set(inv) | RESERVED
+    for p in final.rglob("*"):
+        rel = p.relative_to(final).as_posix()
+        if p.is_symlink():
+            errors.append(f"symlink present: {rel}"); continue
+        if p.is_dir():
+            continue
+        if rel not in expected:
+            errors.append(f"unexpected file present: {rel}")
     return {"ok": not errors, "errors": errors}
 
 

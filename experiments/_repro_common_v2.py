@@ -8,6 +8,7 @@ from src.dynamics.fhn import FHNParams
 from src.metrics.sync import synchronized, time_averaged_error
 from src.networks.switching import random_switching
 from src.simulation.double_layer import SimConfig, initial_state, simulate
+from _contract_v2 import failure_record
 
 
 def frac_synced_grid(N, N_IL, sigma_inter, T_swt_grid, total_time, dt, record_every,
@@ -20,17 +21,21 @@ def frac_synced_grid(N, N_IL, sigma_inter, T_swt_grid, total_time, dt, record_ev
     for T_swt in T_swt_grid:
         dwell = int(round(T_swt / dt))
         n_epochs = int(np.ceil(total_time / T_swt)) + 2
-        flags, tails, failed = [], [], []
+        flags, tails, failed, fail_records = [], [], [], []
         for seed in seeds:
             x0 = initial_state(N, np.random.default_rng(1000 + seed))
             sched = random_switching(N, N_IL, dwell, n_epochs,
                                      np.random.default_rng(2000 + seed), f"T{T_swt}")
+            # KeyboardInterrupt / SystemExit are BaseException and propagate as
+            # external interruptions; only ordinary Exceptions/nonfinite are captured.
             try:
                 res = simulate(p, sched, cfg, x0)
                 if not np.all(np.isfinite(res.e12)):
                     raise FloatingPointError("non-finite E12")
-            except (FloatingPointError, ValueError):
+            except Exception as e:
                 failed.append(int(seed))
+                fail_records.append(failure_record(e, int(seed),
+                                                   {"T_swt": float(T_swt)}))
                 continue
             flags.append(synchronized(res.e12, threshold, tail_frac))
             tails.append(time_averaged_error(res.e12, 1 - tail_frac))
@@ -38,5 +43,7 @@ def frac_synced_grid(N, N_IL, sigma_inter, T_swt_grid, total_time, dt, record_ev
         rows.append({"T_swt": float(T_swt),
                      "frac_synced": float(np.mean(flags)) if flags else None,
                      "mean_tail_E12": float(np.mean(tails)) if tails else None,
-                     "failed_seeds": failed, "frac_failed": len(failed) / n})
+                     "n_successful": len(flags),
+                     "failed_seeds": failed, "failure_records": fail_records,
+                     "frac_failed": len(failed) / n})
     return rows

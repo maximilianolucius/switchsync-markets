@@ -129,13 +129,39 @@ def _select_best_static(sp, sel_seeds):
     return best_subset, best_score, len(ordered)
 
 
+def _selection_mask(sp, sel_seeds):
+    """Selection seeds whose arm + probe-static gammas are all finite/computable.
+    A COMMON mask is used for arm and best-static selection so neither is chosen
+    from partial, incompatible results (contract G.1). Returns (mask, failures)."""
+    mask, failures = [], []
+    for s in sel_seeds:
+        try:
+            base = _base(sp, s)
+            vals = [_gamma(sp, _arm_schedule(sp, base, a), s) for a in ARM_ORDER]
+            vals.append(_gamma(sp, _static(sp, base[0]), s))
+            if not all(np.isfinite(v) for v in vals):
+                raise FloatingPointError("nonfinite gamma in selection")
+        except Exception as e:
+            failures.append(failure_record(e, s, {"phase": "selection"}))
+            continue
+        mask.append(s)
+    return mask, failures
+
+
 def compute(ctx):
     sp, inf, sel, ev = _cfg(ctx)
     N, N_IL, H = sp["N"], sp["N_IL"], sp["H"]
 
-    # ---- SELECTION phase (selection seeds only) ----
-    arm, arm_scores = _select_arm(sp, sel)
-    best_static, best_static_score, n_candidates = _select_best_static(sp, sel)
+    # ---- SELECTION phase (selection seeds only; capture failures, common mask) ----
+    sel_mask, sel_failures = _selection_mask(sp, sel)
+    if (len(sel) - len(sel_mask)) / len(sel) > 0.2 or not sel_mask:
+        return {"gate": GATE, "verdict": "EXECUTION_INVALID",
+                "provenance": provenance(ctx, {"selection": sel, "evaluation": ev}, sp,
+                                         ">20% selection seeds failed (frozen policy)",
+                                         reason_code="FAILED_RUNS", failures=sel_failures),
+                "result": {"n_selection_failed": len(sel) - len(sel_mask)}}
+    arm, arm_scores = _select_arm(sp, sel_mask)
+    best_static, best_static_score, n_candidates = _select_best_static(sp, sel_mask)
 
     # ---- EVALUATION phase (disjoint evaluation seeds) ----
     d_weak, d_strict, d_order = [], [], []
@@ -190,7 +216,7 @@ def compute(ctx):
                                      "NOT_INTERPRETABLE unless G1_weak PASS; comparator = "
                                      "best-of-frozen-candidate-set; arm frozen on selection seeds; "
                                      "G2 = permutation-median comparator + cross-seed sign test",
-                                     reason_code=reason, failures=eval_failures),
+                                     reason_code=reason, failures=sel_failures + eval_failures),
             "result": {
                 "selected_arm": arm, "arm_selection_scores": arm_scores,
                 "arm_tie_break": "max mean selection gamma; canonical order fast<intermediate<slow",

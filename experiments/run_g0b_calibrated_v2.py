@@ -35,7 +35,7 @@ def compute(ctx):
     rows = frac_synced_grid(g["N"], g["N_IL"], g["sigma_inter"], g["T_swt_grid"],
                             g["total_time"], dt, g["record_every"], seeds,
                             tol["sync_threshold_E12"], tol["sync_tail_frac"])
-    failures = [s for r in rows for s in r["failed_seeds"]]
+    failures = [fr for r in rows for fr in r["failure_records"]]
     if any(r["frac_failed"] > 0.2 for r in rows):
         return {"gate": GATE, "verdict": "EXECUTION_INVALID",
                 "provenance": provenance(ctx, seeds, g, ">20% failed/nonfinite seeds in a cell",

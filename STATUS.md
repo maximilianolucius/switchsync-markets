@@ -85,3 +85,15 @@ comparator, permutation-null G2, per-stage inferential G3 with real signed budge
 check, exact-horizon + defined-baseline G4, durable external G0A checkpoint with a
 chunked deadline and frozen quantifiers, and external transactional result custody.
 **No v2/v3/v4 scientific result exists; nothing was executed; no push.**
+
+## P1.2-D addendum (pre-execution correction; NOT executed)
+
+Execution freeze v5 was independently found **NONEXECUTABLE** (`docs/audits/p1_2c_independent_audit.md`)
+and is SUPERSEDED / NEVER RUN. The authoritative, executable contract is now
+**prereg v6** (canonical `2d7e260f…`) + **execution contract v4** (canonical `eb0e80d9…`)
++ **execution freeze v6** (`switchsync-synthetic-execution-v6-freeze`). Fixes: suite
+crash handler (no UnboundLocalError), integral attempt manifest with atomic sealing
+and adversarial verification, coherent no-resume interruption policy, token-SHA
+attempt identity + structured reconstructible command, G0A technical-vs-cost
+taxonomy with a chaos-covering deadline, and an enforced global failed-seed policy.
+**No v2–v6 scientific result exists; nothing was executed; no push.**

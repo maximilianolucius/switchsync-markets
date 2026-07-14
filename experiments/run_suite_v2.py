@@ -93,27 +93,15 @@ def main(argv=None) -> int:
     parser.add_argument("--cheap-only", action="store_true")
     parser.add_argument("--include-g0a-expensive", action="store_true")
     parser.add_argument("--g0a-only", action="store_true")
-    parser.add_argument("--resume-authorized-attempt", default=None,
-                        help="attempt_id to resume (frozen policy; requires "
-                             "--resume-authorization-token; DO NOT RUN without authorization)")
-    parser.add_argument("--resume-authorization-token", default=None)
+    # NOTE (P1.2-D, contract D): there is deliberately NO resume argument. An
+    # .interrupted attempt is TERMINAL; a new run needs a new authorization token
+    # (a different attempt_id) and starts from scratch.
     args = parser.parse_args(argv)
 
     try:
         scope = _scope_from_flags(args)
     except ContractError as e:
         print(f"CONTRACT ERROR: {e}", file=sys.stderr)
-        return 2
-
-    # ---- resume path: PROTECTED; validated before any contract work ----
-    if args.resume_authorized_attempt:
-        if not args.resume_authorization_token:
-            print("CONTRACT ERROR: resume requires --resume-authorization-token "
-                  "(frozen policy: a resume consumes a NEW explicit authorization)",
-                  file=sys.stderr)
-            return 2
-        print("CONTRACT ERROR: resume is defined by the frozen policy but its "
-              "execution is not authorized in this phase", file=sys.stderr)
         return 2
 
     if args.plan:
@@ -156,28 +144,31 @@ def main(argv=None) -> int:
                   file=sys.stderr)
             return 2
         if staging.exists() or _custody.interrupted_dir(run_dir, ctx0.attempt_id).exists():
-            print("CONTRACT ERROR: prior staging/interrupted state exists; a resume "
-                  "requires --resume-authorized-attempt (frozen policy)", file=sys.stderr)
+            print("CONTRACT ERROR: prior staging/interrupted state exists for this "
+                  "attempt_id. An .interrupted attempt is TERMINAL; a new run needs a "
+                  "new authorization token (different attempt_id).", file=sys.stderr)
             return 2
         staging.mkdir(parents=True)
 
+        # initialize crash-handler state BEFORE the fallible call (fixes B: v5 hit
+        # UnboundLocalError when _run_gates raised before assigning its return)
+        written, verdicts, runner_shas, failures = {}, {}, {}, []
         run_list = _gates_for_scope(scope)
-        norm_cmd = f"run_suite_v2 scope:{scope}"
         try:
             written, verdicts, runner_shas, failures = _run_gates(
                 ctx0, staging, run_list, __file__)
         except KeyboardInterrupt:
             _custody.mark_interrupted(run_dir, ctx0.attempt_id)
-            print("INTERRUPTED: staging preserved as .interrupted; no auto-retry; "
-                  "resume requires explicit authorization", file=sys.stderr)
+            print("INTERRUPTED (external): staging preserved as .interrupted (terminal)",
+                  file=sys.stderr)
             return 130
         except Exception as e:
             from _contract_v2 import failure_record
-            failures.append(failure_record(e, None, "suite"))
+            failures = failures + [failure_record(e, None, "suite")]
             _custody.write_failure_ledger(run_dir, ctx0.attempt_id, failures)
             _custody.mark_interrupted(run_dir, ctx0.attempt_id)
-            print(f"SUITE FAILED: {type(e).__name__}: {e}; failure ledger written; "
-                  "NO success bundle published", file=sys.stderr)
+            print(f"SUITE FAILED: {type(e).__name__}: {str(e)[:200]}; failure ledger "
+                  "written; NO success bundle published", file=sys.stderr)
             return 1
 
         if failures:
@@ -186,10 +177,11 @@ def main(argv=None) -> int:
             print(f"SUITE FAILED: {failures}; NO success bundle published", file=sys.stderr)
             return 1
 
-        checkpoint_sha = None
-        cp = staging / "g0a_checkpoint.jsonl"
-        if cp.exists():
-            checkpoint_sha = hashlib.sha256(cp.read_bytes()).hexdigest()
+        roles = {name: "report" for name in written}
+        if (staging / "g0a_checkpoint.jsonl").exists():
+            roles["g0a_checkpoint.jsonl"] = "checkpoint"
+        artifacts = _custody.inventory_staging(staging, roles)
+        from _contract_v2 import structured_command
         manifest = _custody.build_attempt_manifest(
             campaign_id=ctx0.campaign_id, attempt_id=ctx0.attempt_id,
             execution_scope=scope,
@@ -198,11 +190,12 @@ def main(argv=None) -> int:
                     "execution_contract_canonical": ctx0.execution_canonical_hash,
                     "execution_contract_file_sha256": ctx0.execution_file_sha256,
                     "freeze_content_hash": ctx0.freeze_content_hash},
-            head=ctx0.runtime_head, tag=ctx0.freeze_tag, normalized_command=norm_cmd,
+            head=ctx0.runtime_head, tag=ctx0.freeze_tag,
+            structured_command=structured_command(args, ctx0, argv if argv is not None else sys.argv[1:]),
             runner_shas=runner_shas, orchestrator_sha=orch_sha,
+            authorization_token_sha256=ctx0.authorization_token_sha256,
             started_utc=started, ended_utc=_custody.utc_now(), exit_status=0,
-            reports=written, checkpoint_sha=checkpoint_sha, gate_verdicts=verdicts,
-            environment=ctx0.environment)
+            artifacts=artifacts, gate_verdicts=verdicts, environment=ctx0.environment)
         _custody.seal_and_publish(staging, final, manifest)
         for gate, verdict in verdicts.items():
             print(f"  {gate}: {verdict}")

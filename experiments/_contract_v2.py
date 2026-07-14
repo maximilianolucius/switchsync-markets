@@ -1,10 +1,11 @@
-"""Execution contract + custody for the v2 runners (P1.2-C).
+"""Execution contract + custody for the v2 runners (P1.2-D).
 
-Documents (defaults): scientific prereg v5 + execution contract v3 + freeze v5.
+Documents (defaults): scientific prereg v6 + execution contract v4 + freeze v6.
 
-Identity (contract C):
+Identity (contract C/E):
   campaign_id = sha256(prereg_canonical | exec_canonical | freeze_content | freeze_commit)[:16]
-  attempt_id  = sha256(campaign_id | execution_scope | authorization_token)[:16]
+  token_sha   = sha256(token_utf8)
+  attempt_id  = sha256(campaign_id | execution_scope | token_sha)[:16]
 The execution scope is CODE-DETERMINED (frozen vocabulary below), never operator
 text. The authorization token is supplied with --authorization-token and recorded
 ONLY as its SHA-256, never in clear.
@@ -39,9 +40,9 @@ import numpy as np  # noqa: E402
 
 from src.validation.freeze_v2 import config_canonical_hash, verify_manifest_v2  # noqa: E402
 
-DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v5.json"
-DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v3.json"
-DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v5.json"
+DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v6.json"
+DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v4.json"
+DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v6.json"
 
 VERDICTS = {"PASS", "FAIL", "INCONCLUSIVE", "EXECUTION_INVALID", "NOT_INTERPRETABLE"}
 REASON_CODES = {"INCONCLUSIVE_BY_COST", "TIE", "NOT_SIGNIFICANT",
@@ -167,8 +168,54 @@ def campaign_id_of(prereg_c, exec_c, freeze_c, freeze_commit) -> str:
         f"{prereg_c}|{exec_c}|{freeze_c}|{freeze_commit}".encode()).hexdigest()[:16]
 
 
-def attempt_id_of(campaign_id: str, scope: str, auth_token: str) -> str:
-    return hashlib.sha256(f"{campaign_id}|{scope}|{auth_token}".encode()).hexdigest()[:16]
+def token_sha_of(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def attempt_id_of(campaign_id: str, scope: str, token_sha: str) -> str:
+    """attempt_id = sha256(campaign_id | scope | token_sha). Uses the token SHA,
+    NOT the raw token, so an auditor can recompute attempt_id from the recorded
+    authorization_token_sha256 without ever seeing the token in clear."""
+    return hashlib.sha256(f"{campaign_id}|{scope}|{token_sha}".encode()).hexdigest()[:16]
+
+
+def validate_token(token) -> str:
+    if not isinstance(token, str) or not token.strip():
+        raise ContractError("authorization token must be a non-empty, non-whitespace string")
+    return token
+
+
+def structured_command(args, ctx: "RunContext", argv) -> dict:
+    """Reconstructible command record: resolved interpreter + version, normalized
+    argv (token value masked), resolved hashes/flags, scope, resolved run-dir. The
+    token is NEVER stored in clear — only as <sha256:...>."""
+    masked = []
+    skip = False
+    for i, a in enumerate(argv or []):
+        if skip:
+            masked.append(f"<sha256:{ctx.authorization_token_sha256}>")
+            skip = False
+            continue
+        if a == "--authorization-token":
+            masked.append(a)
+            skip = True
+        elif a.startswith("--authorization-token="):
+            masked.append(f"--authorization-token=<sha256:{ctx.authorization_token_sha256}>")
+        else:
+            masked.append(a)
+    return {
+        "interpreter": sys.executable,
+        "python_version": sys.version.split()[0],
+        "argv_normalized": masked,
+        "execution_scope": ctx.execution_scope,
+        "run_dir_resolved": str(Path(args.run_dir).resolve()) if args.run_dir else None,
+        "hashes": {"prereg_canonical": ctx.prereg_canonical_hash,
+                   "prereg_file_sha256": ctx.prereg_file_sha256,
+                   "execution_contract_canonical": ctx.execution_canonical_hash,
+                   "execution_contract_file_sha256": ctx.execution_file_sha256,
+                   "freeze_content_hash": ctx.freeze_content_hash},
+        "authorization_token": f"<sha256:{ctx.authorization_token_sha256}>",
+    }
 
 
 def failure_record(exc: BaseException, seed, cell) -> dict:
@@ -288,15 +335,16 @@ def build_context(args, gate: str, runner_file: str,
     if _is_inside_repo(run_dir):
         raise ContractError(f"--run-dir must be OUTSIDE the repo, got {run_dir}")
 
+    token = validate_token(args.authorization_token)
+    token_sha = token_sha_of(token)
     campaign = campaign_id_of(pc, ec, manifest["content_hash"], args.expect_freeze_commit)
-    attempt = attempt_id_of(campaign, execution_scope, args.authorization_token)
+    attempt = attempt_id_of(campaign, execution_scope, token_sha)
     base.update(freeze_content_hash=manifest["content_hash"],
                 source_commit=manifest.get("git_commit"),
                 freeze_commit=args.expect_freeze_commit,
                 freeze_tag=args.expect_freeze_tag,
                 campaign_id=campaign, attempt_id=attempt,
-                authorization_token_sha256=hashlib.sha256(
-                    args.authorization_token.encode()).hexdigest(),
+                authorization_token_sha256=token_sha,
                 out_dir=run_dir / f"{attempt}.staging")
     return RunContext(**base)
 
@@ -351,6 +399,11 @@ def validate_report_schema(report: dict) -> None:
     rc = report.get("provenance", {}).get("reason_code")
     if rc is not None and rc not in REASON_CODES:
         raise ContractError(f"invalid reason_code: {rc}")
+    # validate the STRUCTURE of each failure record (not just field existence)
+    fr_req = {"exception_type", "message", "seed", "cell", "timestamp_utc"}
+    for i, f in enumerate(report["provenance"].get("failures", [])):
+        if not isinstance(f, dict) or not fr_req.issubset(f):
+            raise ContractError(f"malformed failure record at index {i}: {f}")
 
 
 def fsync_path(p: Path) -> None:
@@ -420,8 +473,10 @@ def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
             return 2
         staging = _custody.staging_dir(run_dir, ctx.attempt_id)
         if staging.exists() or _custody.interrupted_dir(run_dir, ctx.attempt_id).exists():
-            print("CONTRACT ERROR: prior staging/interrupted state exists; resume "
-                  "requires --resume-authorized-attempt (frozen policy)", file=sys.stderr)
+            print("CONTRACT ERROR: prior staging/interrupted state exists. An "
+                  ".interrupted attempt is TERMINAL and is never resumed or mixed; a "
+                  "new run needs a new authorization token (new attempt_id) and starts "
+                  "from scratch (frozen policy).", file=sys.stderr)
             return 2
         staging.mkdir(parents=True)
         try:
@@ -430,13 +485,13 @@ def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
             out = atomic_write_report(ctx, report_name, report)
         except ContractError as e:
             _custody.write_failure_ledger(run_dir, ctx.attempt_id,
-                                          [{"gate": gate, "error": str(e)}])
+                                          [{"gate": gate, "error": str(e)[:200]}])
             _custody.mark_interrupted(run_dir, ctx.attempt_id)
             print(f"CONTRACT ERROR: {e}", file=sys.stderr)
             return 2
         except KeyboardInterrupt:
             _custody.mark_interrupted(run_dir, ctx.attempt_id)
-            print("INTERRUPTED: staging preserved as .interrupted; no auto-retry",
+            print("INTERRUPTED: staging preserved as .interrupted (terminal; no retry)",
                   file=sys.stderr)
             return 130
         except Exception as e:
@@ -445,7 +500,10 @@ def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
             _custody.mark_interrupted(run_dir, ctx.attempt_id)
             print(f"EXECUTION ERROR: {type(e).__name__}: {e}", file=sys.stderr)
             return 1
-        import hashlib as _h
+        roles = {report_name: "report"}
+        if (Path(ctx.out_dir) / "g0a_checkpoint.jsonl").exists():
+            roles["g0a_checkpoint.jsonl"] = "checkpoint"
+        inv = _custody.inventory_staging(staging, roles)
         manifest = _custody.build_attempt_manifest(
             campaign_id=ctx.campaign_id, attempt_id=ctx.attempt_id,
             execution_scope=ctx.execution_scope,
@@ -455,11 +513,11 @@ def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
                     "execution_contract_file_sha256": ctx.execution_file_sha256,
                     "freeze_content_hash": ctx.freeze_content_hash},
             head=ctx.runtime_head, tag=ctx.freeze_tag,
-            normalized_command=f"run:{gate} scope:{ctx.execution_scope}",
+            structured_command=structured_command(args, ctx, argv or sys.argv[1:]),
             runner_shas={gate: ctx.runner_sha256}, orchestrator_sha=None,
+            authorization_token_sha256=ctx.authorization_token_sha256,
             started_utc=started, ended_utc=_custody.utc_now(), exit_status=0,
-            reports={report_name: _h.sha256(out.read_bytes()).hexdigest()},
-            checkpoint_sha=None, gate_verdicts={gate: report["verdict"]},
+            artifacts=inv, gate_verdicts={gate: report["verdict"]},
             environment=ctx.environment)
         _custody.seal_and_publish(staging, _custody.final_dir(run_dir, ctx.attempt_id),
                                   manifest)

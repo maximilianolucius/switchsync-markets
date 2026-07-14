@@ -92,3 +92,15 @@ Scientific decisions, contract choices, and their reasons. Newest entries append
 - **D52. Global failed-seed policy (H).** Frozen definition/capture/thresholds; >20% -> EXECUTION_INVALID(FAILED_RUNS); <=20% -> successful-seeds denominator + disclosure. G0B denominator = SUCCESSFUL_SEEDS_ONLY. G0C single-seed failure -> EXECUTION_INVALID. Per-seed exception capture in G1 (selection+evaluation), G3, G4.
 - **D53. G2 Option 1 (I).** Renamed "permutation-median comparator + cross-seed sign test"; cancellation limitation disclosed; positive test runs the real pipeline end-to-end.
 - **D54. Execution freeze v5 + tag switchsync-synthetic-execution-v5-freeze.** Separate source and freeze commits; stored content_hash == independent recomputation; prior tags not moved. 95 tests pass; compileall clean. No v2/v3/v4/v5 result; NO-RUN; NO-PUSH.
+
+## 2026-07-14 — P1.2-D provenance/custody/failure/G0A closure, execution freeze v6
+
+- **D55. Execution freeze v5 -> SUPERSEDED / NONEXECUTABLE / NEVER RUN.** Audit `docs/audits/p1_2c_independent_audit.md`; sidecar `artifacts/freeze_execution_v5.SUPERSEDED.md`; tag/commit `46dfd9a` preserved.
+- **D56. prereg v6 + execution contract v4.** prereg v6 canonical 2d7e260f / file fd10a220; exec contract v4 canonical eb0e80d9 / file 1861e7bb (binds v6, grids unchanged). Changelog classifies every change operational/custody/documentation; NO scientific change.
+- **D57. Suite crash handler (B).** Failure state initialized before _run_gates; original sanitized error preserved; ledger + .interrupted; no UnboundLocalError; end-to-end test via suite.main injecting a real crash.
+- **D58. Integral manifest + atomic seal (C).** inventory_staging records size+sha+role of every artifact (incl. G0A checkpoint); manifest+SEALED written into staging then a single atomic rename (no unsealed window); verify_sealed_attempt rejects tampered checkpoint/manifest/SEALED, extra/missing/wrong-size-or-hash/symlink/unsafe-path; G0A report records relative checkpoint name+SHA.
+- **D59. No-resume interruption policy (D).** resume removed; .interrupted terminal; new token/attempt_id from scratch; 'crash-recoverable' claim removed.
+- **D60. Attempt identity + structured command (E).** attempt_id from token_sha (auditor-recomputable without the raw token); token rejected if empty/whitespace; structured command with interpreter+version, normalized argv (token masked), hashes, scope, resolved run-dir.
+- **D61. G0A technical-vs-cost taxonomy (F).** clean-deadline-only INCONCLUSIVE_BY_COST; missing-without-deadline or >20% failed -> EXECUTION_INVALID; INTERRUPTED_BY_COST state record not counted; chaos deadline covered.
+- **D62. Enforced global failed-seed policy (G).** selection-phase capture + common mask in G1/G2; full failure records in G0B/G0C/G4; G4 per-variant >20% + all-failure aggregation; schema validates each failure record's structure.
+- **D63. Execution freeze v6 + tag switchsync-synthetic-execution-v6-freeze.** Separate source and freeze commits; stored content_hash == independent recomputation; prior tags not moved. 105 tests pass; compileall clean. No v2-v6 result; NO-RUN; NO-PUSH.

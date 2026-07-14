@@ -104,14 +104,16 @@ def compute(ctx):
         else:
             out[key] = None
 
-    # failed-run handling (>20% in the synchronous variant)
-    sync_failed = failed_by_variant.get("async_1_1", {}).get("seeds", [])
-    sync_fail_records = failed_by_variant.get("async_1_1", {}).get("records", [])
-    if len(sync_failed) / len(seeds) > 0.2:
-        return {"gate": GATE, "verdict": "EXECUTION_INVALID",
-                "provenance": provenance(ctx, seeds, g, ">20% failed/nonfinite seeds",
-                                         reason_code="FAILED_RUNS", failures=sync_fail_records),
-                "result": {"by_async_variant": out, "failed_by_variant": failed_by_variant}}
+    # failed-run handling: apply >20% to EVERY configured variant (all variants are
+    # gate-relevant here; none is declared diagnostic-only in the contract).
+    all_fail_records = [r for v in failed_by_variant.values() for r in v["records"]]
+    for key, fv in failed_by_variant.items():
+        if len(fv["seeds"]) / len(seeds) > 0.2:
+            return {"gate": GATE, "verdict": "EXECUTION_INVALID",
+                    "provenance": provenance(ctx, seeds, g,
+                                             f">20% failed/nonfinite seeds in variant {key}",
+                                             reason_code="FAILED_RUNS", failures=all_fail_records),
+                    "result": {"by_async_variant": out, "failed_by_variant": failed_by_variant}}
 
     sync = out["async_1_1"]
     # "beats the baseline": per-seed paired precision margin, shared inference, floor=margin
@@ -128,7 +130,7 @@ def compute(ctx):
             "provenance": provenance(ctx, seeds, g,
                                      "PASS iff precision>0.6 AND recall>0.6 AND contraction_corr>0.5 "
                                      "AND basis beats baseline (paired precision margin, shared rule)",
-                                     failures=sync_fail_records),
+                                     failures=all_fail_records),
             "result": {"by_async_variant": out, "conditions": conds,
                        "beats_baseline_decision": beats,
                        "failed_by_variant": failed_by_variant}}
