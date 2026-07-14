@@ -1,6 +1,6 @@
 """Execution contract + custody for the v2 runners.
 
-Documents (defaults): scientific prereg v7 + execution contract v5 + freeze v7.
+Documents (defaults): scientific prereg v8 + execution contract v6 + freeze v8.
 
 Identity (contract C/E):
   campaign_id = sha256(prereg_canonical | exec_canonical | freeze_content | freeze_commit)[:16]
@@ -42,9 +42,9 @@ import numpy as np  # noqa: E402
 
 from src.validation.freeze_v2 import config_canonical_hash, verify_manifest_v2  # noqa: E402
 
-DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v7.json"
-DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v5.json"
-DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v7.json"
+DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v8.json"
+DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v6.json"
+DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v8.json"
 
 VERDICTS = {"PASS", "FAIL", "INCONCLUSIVE", "EXECUTION_INVALID", "NOT_INTERPRETABLE"}
 REASON_CODES = {"INCONCLUSIVE_BY_COST", "TIE", "NOT_SIGNIFICANT",

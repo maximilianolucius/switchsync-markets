@@ -1,0 +1,343 @@
+{
+  "contract_name": "switchsync-synthetic-prereg-v8",
+  "contract_version": 8,
+  "supersedes": "synthetic_prereg_v7.json",
+  "document_kind": "SCIENTIFIC_PREREG",
+  "description": "Scientific pre-registration v8 (P1.2-F). Minimal fix: RESTORES the top-level `tolerances` block {sync_threshold_E12: 0.02, sync_tail_frac: 0.25} that existed in prereg v3 and was accidentally dropped when prereg v4 was created (never declared as a scientific change). run_g0a_exact_v2 and run_g0b_calibrated_v2 read ctx.prereg['tolerances']; without it run_suite_v2.py --plan raised KeyError, so freeze v7 was NON-EXECUTABLE (docs/audits/p1_2e_independent_audit.md). This restoration changes NO seed, grid, estimand, gate, inference or decision rule and reinstates values already frozen in v3. NO real data. NOT EXECUTED beyond the authorized one-shot cheap suite.",
+  "lineage": {
+    "reason_for_v8": "execution freeze v7 (tag switchsync-synthetic-execution-v7-freeze, 61a63f3) is SUPERSEDED / NONEXECUTABLE / NEVER RUN: it lacked the `tolerances` block, so --plan raised KeyError. Only the accidentally-dropped tolerances block is restored; no other scientific field changed.",
+    "tolerances_restored_from": "synthetic_prereg_v3.json (accidentally dropped at v4)",
+    "prereg_v7_canonical": "7fde7def521ae3dabc1ed7bac38427fccea5dea79eeb073ef407210799dbc1e7",
+    "execution_contract_v5_canonical": "b169c420e0e9aca813609d09e63a86ece350ee2a7632de9704695da882d43de1",
+    "changelog": "docs/methodology/prereg_v7_to_v8_changelog.md"
+  },
+  "global": {
+    "dt": 0.01,
+    "integrator": "rk4_fixed_step",
+    "ic_range": [
+      -2.0,
+      2.0
+    ]
+  },
+  "fhn": {
+    "eps": 0.05,
+    "a_odd": 0.87,
+    "a_even": 0.97,
+    "phi_expr": "pi/2 - 0.1",
+    "sigma_intra": 0.1,
+    "radius": 1,
+    "density_ratio": 0.25
+  },
+  "tolerances": {
+    "sync_threshold_E12": 0.02,
+    "sync_tail_frac": 0.25
+  },
+  "seed_blocks": {
+    "chaos": [
+      7
+    ],
+    "g0a": [
+      11,
+      12,
+      13
+    ],
+    "g0b": [
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "g0c_msf": [
+      31
+    ],
+    "paired_selection": [
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48
+    ],
+    "paired_evaluation": [
+      81,
+      82,
+      83,
+      84,
+      85,
+      86,
+      87,
+      88
+    ],
+    "stages": [
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58
+    ],
+    "identifiability": [
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68
+    ]
+  },
+  "inference_contract": {
+    "single_shared_function": "src/metrics/inference.py:paired_decision (used identically by G1_weak, G1_strict, G2, G3, G4-baseline)",
+    "test": "exact_two_sided_sign_test on non-zero paired differences",
+    "alpha": 0.05,
+    "std_definition": "sample standard deviation of the paired differences, ddof=1",
+    "std_mult": 3.0,
+    "effect_floor": {
+      "surrogate_gamma": 0.02,
+      "fhn_E12": 0.02,
+      "identifiability_margin": 0.05
+    },
+    "band": "max(std_mult * sample_std_ddof1, effect_floor)",
+    "zero_handling": "|d|<=1e-12 dropped from the sign test and reported (n_zero)",
+    "decision": "p>=alpha -> INCONCLUSIVE(NOT_SIGNIFICANT); elif mean>band -> PASS; elif mean<-band -> FAIL; else INCONCLUSIVE(TIE)",
+    "corrected_fact": "an exact two-sided sign test with 8/8 equal signs gives p = 2*C(8,0)/2^8 = 0.0078125 (< 0.05). 8 evaluation seeds CAN reach significance.",
+    "bootstrap_role": "DESCRIPTOR ONLY (n_boot=2000, boot_seed=20260713), not part of the decision; small-n caveat recorded. The rule is the exact sign test + band, NOT a bootstrap CI."
+  },
+  "gates": {
+    "G0A_exact_reproduction": {
+      "goal": "Reproduce the paper regime (sigma_12=0.1) at paper scale.",
+      "outcomes": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "EXECUTION_INVALID"
+      ],
+      "cost_rule": {
+        "frozen_before_measurement": true,
+        "max_wall_time_seconds": 86400,
+        "chunk_steps": 5000,
+        "mandatory_minimum_size": 200,
+        "minimum_completed_seeds": 3,
+        "deciding_sizes": [
+          200,
+          400
+        ],
+        "non_deciding_sizes": [
+          100
+        ],
+        "isolated_layer_chaos_prerequisite": "lambda_max>0 at the same (size, seed) before the switching cells of that size may count",
+        "pass_quantifier": "PASS iff, for EVERY deciding size, ALL fast cells (T_swt<=25) have frac_synced>=0.5 AND ALL slow cells (T_swt>=120) have frac_synced<0.5, with the chaos prerequisite met; a single favorable N=100 (non-deciding) cell can NEVER decide the gate",
+        "partial_rule": "an incomplete deciding cell is INCONCLUSIVE(INCONCLUSIVE_BY_COST) ONLY when (a) a CLEAN frozen-deadline expiry was recorded (interrupted_by_cost=True) AND (b) NO invalidating technical cause exists; an incomplete cell for ANY OTHER cause (missing without a deadline, >20% technical failures, or zero successful seeds in an observable required cell) is EXECUTION_INVALID. See failure_precedence.",
+        "checkpoint": "durable, append-only, OUTSIDE the repo: one atomic entry per cell (flush+fsync), keyed by freeze/prereg/contract/runner SHAs and params; duplicates rejected; the checkpoint is EVIDENCE of what ran, NOT a resume input; no cell may be deleted to obtain a favorable verdict",
+        "deadline_scope": "a SOFT wall-time budget (time.monotonic) bounds the chaos prerequisite and the switching simulations; it is checked before each size, before each seed/cell, and DURING chaos (chunked Benettin) and switching (chunked RK4). It is SOFT, not hard: a non-interruptible fsync or the final checkpoint hashing may overshoot it, so elapsed time and any overshoot are recorded, not assumed away",
+        "size_order": "deciding sizes {200,400} run FIRST; N=100 may not consume budget before them",
+        "clean_deadline_conversion": "ONLY a DeadlineExceeded/LyapunovDeadlineExceeded from the frozen budget check (interrupted_by_cost=True), AND only in the absence of any invalidating technical cause (see failure_precedence), converts missing cells to INCONCLUSIVE_BY_COST; a missing cell WITHOUT interrupted_by_cost, or any >20%/zero-success technical failure, is EXECUTION_INVALID, never cost",
+        "checkpoint_ledger": "hash-chained append-only JSONL outside the repo: per-record sequence number, prev_record_hash, record_hash; load verifies the full chain; duplicate cell UIDs, sequence gaps, reordering, changed results and foreign provenance are rejected; a truncated final line is detected and the valid prefix is preserved as EVIDENCE ONLY; there is NO continuation and NO resume from it — a new run needs a new authorization token and starts from scratch; evidence is never silently deleted",
+        "state_record": "the INTERRUPTED_BY_COST checkpoint state record is evidence only and is never counted as a completed scientific cell",
+        "chaos_deadline": "the chunked deadline abort is applied to the chaos/Benettin computation as well as the switching integration",
+        "checkpoint_relative_paths": "the G0A report records the checkpoint by RELATIVE name + sha256, never an absolute host path",
+        "failure_precedence": "FROZEN, highest first: (1) corrupt/invalid contract or checkpoint -> EXECUTION_INVALID; (2) >20% technical failures OR zero successful seeds in ANY observable required cell -> EXECUTION_INVALID (this OUTRANKS cost: a recorded technical failure is NEVER converted to INCONCLUSIVE_BY_COST, because the cost paths re-raise before a failed record is written); (3) otherwise, required cells missing under a clean deadline -> INCONCLUSIVE(INCONCLUSIVE_BY_COST); (4) required cells missing WITHOUT a deadline -> EXECUTION_INVALID; (5) complete grid -> PASS/FAIL.",
+        "counters": "n_science_cells EXCLUDES the kind=state record; the report discloses n_ledger_records, n_science_cells and n_state_records separately, plus soft_deadline_seconds, elapsed_seconds and overshoot_seconds"
+      }
+    },
+    "G0B_calibrated_demonstration": {
+      "goal": "Calibrated small-N demonstration (sigma_12=1.5).",
+      "outcomes": [
+        "PASS",
+        "FAIL",
+        "EXECUTION_INVALID"
+      ],
+      "label": "CALIBRATED_QUALITATIVE_DEMONSTRATION (NOT reproduction)",
+      "fast_semantics": "ALL",
+      "slow_semantics": "ALL",
+      "accept": "DEMONSTRATED(=PASS) iff ALL fast cells (T_swt<=10) synchronize (frac_synced>=0.5) AND ALL slow cells (T_swt>=160) do NOT (frac_synced<0.5); >20% failed/nonfinite seeds in any cell -> EXECUTION_INVALID",
+      "forbidden_claim": "no N-dependence of the switching threshold without a multi-N switching grid"
+    },
+    "G0C_msf_minimal": {
+      "goal": "Minimal transverse Lyapunov, anti-phase channels only.",
+      "outcomes": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "EXECUTION_INVALID"
+      ],
+      "accept": "channels not anti-phase -> EXECUTION_INVALID(PREREQ_FAIL); no Psi<0 at the fastest T_swt -> FAIL; Psi<0 but onset independent of T_swt -> INCONCLUSIVE(PARTIAL_NO_TSWT_DEPENDENCE); Psi<0 with T_swt-dependent onset -> PASS"
+    },
+    "G1_weak": {
+      "goal": "Switching beats static-sparse of equal instantaneous density.",
+      "estimand": "gamma_selected_arm - gamma_static_sparse, paired over evaluation seeds",
+      "arm_selection": "the switching RATE arm is chosen on the paired_selection seeds ONLY (max mean selection gamma; deterministic tie-break by canonical arm order fast<intermediate<slow) and FROZEN before any evaluation seed is opened",
+      "decision": "shared paired_decision; PASS/FAIL/INCONCLUSIVE",
+      "outcomes": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE"
+      ]
+    },
+    "G1_strict": {
+      "goal": "Switching beats the average graph AND the best-of-frozen-candidate-set static.",
+      "comparator_name": "best-of-frozen-candidate-set (NOT 'best admissible static')",
+      "comparator_note": "the admissible universe is C(24,6)=134596 subsets; the frozen candidate set is the base snapshots UNION a frozen random search (best_static_search). No exhaustive/certified search is performed, so G1_strict MUST NOT claim to beat the best admissible static.",
+      "estimand": "gamma_selected_arm - max(gamma_average, gamma_best_of_frozen_candidates), paired over evaluation seeds; candidate static SUBSET selected on selection seeds and FROZEN",
+      "candidate_ordering": "candidates are canonical sorted tuples; ties in selection score broken lexicographically",
+      "decision": "shared paired_decision",
+      "interpretability": "NOT_INTERPRETABLE unless G1_weak PASS (diagnostic value may be computed but not interpreted as a gate)",
+      "outcomes": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_INTERPRETABLE"
+      ]
+    },
+    "G2_order": {
+      "goal": "Temporal order changes contraction beyond the multiset/average.",
+      "estimand": "delta_s = gamma_ordered - median(gamma_permutations); aggregated by the shared paired_decision over evaluation seeds",
+      "decision": "PASS iff shared paired_decision(delta_s) is PASS or FAIL (a significant order effect in either direction beyond the band); else INCONCLUSIVE (evidence favors aggregate connectivity)",
+      "not_abs_vs_zero": "the statistic is the signed delta against the permutation MEDIAN, aggregated by a paired test; NOT abs(effect) compared to zero as a null mean",
+      "interpretability": "NOT_INTERPRETABLE unless G1_weak PASS",
+      "outcomes": [
+        "PASS",
+        "INCONCLUSIVE",
+        "NOT_INTERPRETABLE"
+      ],
+      "method_name": "permutation-median comparator + cross-seed sign test",
+      "method_definition": "per evaluation seed: delta_s = gamma_ordered - median(gamma over g2_n_perm frozen order-permutations with independent per-seed RNG); the delta_s are aggregated across seeds by the shared exact sign test + effect band. This is NOT a per-seed permutation test: it detects a systematic displacement of the observed order relative to the permutation median, and order effects of varying sign across seeds can cancel. This limitation is frozen and disclosed."
+    },
+    "G3_robustness": {
+      "goal": "Robustness of the G1_weak advantage to IMPLEMENTED stresses.",
+      "per_stage": "shared paired_decision on (gamma_fast - gamma_static) over the stage seed block",
+      "gate_rule": "PASS iff BOTH faithful and mild_heterogeneity stages are PASS; else INCONCLUSIVE(LIMITED). A signed stage where ANY seed lacks a strictly negative off-diagonal weight, OR whose off-diagonal Frobenius budget differs from its unsigned comparator by more than signed_budget_tolerance, -> EXECUTION_INVALID(STRESS_NOT_IMPLEMENTED)",
+      "signed_budget_tolerance": 1e-09,
+      "per_seed_metadata": "operator metadata recorded for ALL seeds (not only the last)",
+      "outcomes": [
+        "PASS",
+        "INCONCLUSIVE",
+        "EXECUTION_INVALID"
+      ]
+    },
+    "G4_identifiability": {
+      "goal": "Recover switching from observations, past-only, same-realization ground truth.",
+      "horizon_assertion": "for every seed, schedule.total_steps MUST equal horizon_steps (asserted at runtime before simulating)",
+      "conditions": [
+        "mean precision > 0.6",
+        "mean recall > 0.6",
+        "mean contraction_corr_same_realization > 0.5",
+        "basis estimator beats the factor-confounded baseline"
+      ],
+      "beats_baseline": "per-seed paired difference (basis_precision - levelcorr_precision) fed to the shared paired_decision with floor=identifiability_margin (0.05); PASS required (significant positive margin)",
+      "accept": "PASS iff ALL FOUR conditions hold; else FAIL",
+      "failed_handling": ">20% failed/nonfinite seeds -> EXECUTION_INVALID",
+      "async_language": "asynchrony/LOCF (Epps-like) degradation, NOT a causal Epps demonstration",
+      "outcomes": [
+        "PASS",
+        "FAIL",
+        "EXECUTION_INVALID"
+      ]
+    }
+  },
+  "custody": {
+    "run_dir": "EXTERNAL to the repo, required for a full run; results NEVER inside the frozen repo",
+    "campaign_id": "sha256(prereg_canonical | exec_canonical | freeze_content | freeze_commit)[:16] — the scientific campaign identity",
+    "no_overwrite_resume_retry": "a target report that already exists is refused; there is NO resume and NO retry: a .staging (once its live flock is gone), .interrupted or .invalid attempt is TERMINAL, and a new run needs a NEW authorization token (a different attempt_id) and starts from scratch",
+    "suite_transaction": "the suite writes to a staging dir and publishes to <run-dir>/<attempt_id>/ by a SINGLE atomic rename ONLY on full success after the pre-rename validation passes; on a gate-invalid result OR any custody failure it writes a failure ledger, preserves staging as .interrupted, and publishes NO success bundle",
+    "sequential_individual_runs": "individual runners may write distinct reports into the same <run-dir>/<attempt_id>/ sequentially; the first output never invalidates the freeze identity (outputs are external)",
+    "flag_semantics": "--cheap-only runs G0B/G0C/G1G2/G3/G4 and leaves G0A NOT_RUN; --include-g0a-expensive adds G0A; supplying BOTH is a contradiction and is rejected"
+  },
+  "removed_gates": {
+    "H3": "coverage-vs-reachability isolation removed; temporal_reachability_ratio is a descriptor only"
+  },
+  "reporting_requirements": {
+    "every_report_must_embed": [
+      "prereg_canonical_hash",
+      "prereg_file_sha256",
+      "execution_contract_canonical_hash",
+      "execution_contract_file_sha256",
+      "freeze_content_hash",
+      "runner_sha256",
+      "orchestrator_sha256",
+      "execution_scope",
+      "execution_mode",
+      "campaign_id",
+      "attempt_id",
+      "authorization_token_sha256",
+      "source_commit",
+      "freeze_commit",
+      "freeze_tag",
+      "runtime_head",
+      "environment",
+      "seeds",
+      "params",
+      "criterion",
+      "failures"
+    ]
+  },
+  "identity_and_custody": {
+    "campaign_id": "sha256(prereg_canonical | execution_contract_canonical | freeze_content_hash | freeze_commit)[:16] — identifies the scientific contract",
+    "attempt_id": "sha256(campaign_id | scope | token_sha)[:16], token_sha = sha256(token_utf8) — recomputable by an auditor from the recorded authorization_token_sha256 WITHOUT the raw token",
+    "execution_scope_vocabulary": [
+      "cheap-suite",
+      "full-suite",
+      "g0a-only",
+      "individual:G0A",
+      "individual:G0B",
+      "individual:G0C",
+      "individual:G1G2",
+      "individual:G3",
+      "individual:G4"
+    ],
+    "scope_is_code_determined": "the scope is derived from the invocation (runner module or suite flags), never operator-supplied text",
+    "authorization_token": "supplied with --authorization-token; rejected if empty/whitespace/non-string; recorded ONLY as sha256; attempt_id derives from token_sha, not the raw token",
+    "provenance_rule": "each report records the SHA-256 of the scientific runner file that computed it; the orchestrator SHA is set exclusively by run_suite_v2 via child_context() (immutable per-gate contexts); there is NO CLI argument to inject an orchestrator SHA; individual runners record orchestrator_sha256=null and execution_mode='individual:<gate>'",
+    "attempt_directories": "<run-dir>/<attempt_id>.staging (in-progress, flock-held) | .failed (failure ledger) | .interrupted (terminal) | .invalid (terminal; an exceptional post-rename verification failure) | <attempt_id>/ (final, immutable, SEALED)",
+    "attempt_manifest": "integral inventory of ALL artifacts (report, G0A checkpoint, evidence) each with size + sha256 + role; plus campaign/attempt ids, scope, document hashes, HEAD/tag, STRUCTURED command (interpreter+version, normalized argv with token masked as <sha256:...>, hashes/flags, scope, resolved run-dir), runner+orchestrator SHAs, authorization_token_sha256, UTC start/end, exit status, gate verdicts, environment, state=COMPLETED, and the manifest's own content hash",
+    "sealing": "a SINGLE manifest-and-staging validation function runs BEFORE the rename and checks: manifest dict shape and field types; the recomputed manifest content hash; campaign/attempt/scope coherence; that artifacts is a dict of safely-named, non-reserved entries each with size(int>=0) + valid sha256 + valid role; that staging is FLAT (no subdirectory, symlink, FIFO/socket/device) and contains EXACTLY the declared artifacts plus attempt_manifest.json and SEALED; that each artifact's bytes match its inventoried size and hash; and that SEALED equals the manifest content hash. Sequence: inventory staging -> build manifest -> write manifest + SEALED INTO staging -> fsync files and directory -> run the full validation (including manifest+SEALED) -> ONLY if every check passes, a SINGLE atomic rename staging->final (no final-without-SEAL window) -> post-rename re-verification. A deterministic pre-rename validation error leaves `final` NONEXISTENT; if the exceptional post-rename re-verification fails, the directory is moved to <attempt_id>.invalid and NEVER left as a successful attempt. verify_sealed_attempt NEVER raises on a malformed manifest — it returns ok=False with structured errors.",
+    "concurrency": "an exclusive flock on <run-dir>/<attempt_id>.lock prevents concurrent executions of the same attempt_id",
+    "coexistence": "cheap-suite and g0a-only attempts coexist under the same campaign_id with different attempt_ids; a published bundle is immutable and no individual runner may add files to it",
+    "campaign_result_bundle": "a campaign bundle is a NEW directory containing a campaign_manifest.json that REFERENCES the sealed attempts by their attempt_id and manifest_content_hash (bytes of the referenced attempts are never modified); its construction is a separate, future authorized step",
+    "valid_attempt_contents": "exactly attempt_manifest.json, SEALED, and the inventoried artifacts — nothing else"
+  },
+  "crash_and_resume_policy": {
+    "no_auto_retry": "a crash or interruption is NEVER retried",
+    "interrupted_is_terminal": "the staging directory is preserved as <attempt_id>.interrupted and is TERMINAL: it is never resumed or mixed",
+    "new_run_from_scratch": "a subsequent execution requires a NEW authorization token, yields a DIFFERENT attempt_id, and starts from scratch",
+    "no_resume_feature": "there is NO resume command or argument; the checkpoint is evidence and an instrument of a LIVE run or a clean cost-termination, and never authorizes a resume",
+    "technical_failure_is_not_science": "a technical failure (crash, external signal, resource kill) never becomes a scientific verdict; only a CLEAN frozen-deadline expiry may convert to INCONCLUSIVE_BY_COST",
+    "incomplete_cause_distinction": "an incomplete run is INCONCLUSIVE_BY_COST only under a CLEAN frozen-deadline expiry AND no invalidating technical cause; incomplete for any other cause (missing without a deadline, >20% technical failures, zero successful seeds) is EXECUTION_INVALID",
+    "terminal_states": ".staging (only while a live run holds the flock), .interrupted and .invalid are ALL terminal; none is ever resumed or mixed, and no checkpoint ever authorizes a resume"
+  },
+  "failed_seed_policy": {
+    "failure_definition": [
+      "raised exception",
+      "technical timeout",
+      "wrong shape",
+      "nonfinite value",
+      "missing result"
+    ],
+    "capture_per_seed": [
+      "exception_type",
+      "sanitized message (truncated, no traceback, repo paths masked)",
+      "seed",
+      "stage/cell",
+      "timestamp_utc"
+    ],
+    "over_20_percent": "EXECUTION_INVALID with reason_code=FAILED_RUNS",
+    "under_or_equal_20_percent": "metrics are computed over SUCCESSFUL seeds only (the denominator excludes failed seeds); the inferential n is the number of successful seeds; the failures and reduced n MUST be disclosed in the report",
+    "g0b_frac_synced_denominator": "SUCCESSFUL_SEEDS_ONLY (frozen choice; failed seeds disclosed per cell, never counted as non-synchronization)",
+    "g0c_single_seed": "G0C has one seed: ANY technical failure or nonfinite value => EXECUTION_INVALID",
+    "g0a_distinctions": "G0A distinguishes, in FROZEN precedence order: a technical failed cell (recorded with failed=true; >20% or zero-success in an observable required cell => EXECUTION_INVALID, OUTRANKING cost), incomplete-by-clean-frozen-cost (clean deadline AND no invalidating cause => INTERRUPTED_BY_COST => INCONCLUSIVE_BY_COST), and external interruption (propagates; staging preserved as .interrupted; NO scientific verdict)",
+    "enforcement": {
+      "g1_g2": "failures captured during BOTH selection and evaluation; a COMMON mask of complete selection seeds is used for arm AND best-static selection; >20% selection or >20% evaluation failures => EXECUTION_INVALID",
+      "g0b": "full failure records (not integer seed lists); ordinary exceptions and nonfinite captured; KeyboardInterrupt/SystemExit propagate as external interruptions",
+      "g0c": "single seed: any exception OR nonfinite => EXECUTION_INVALID with a full failure record",
+      "g4": ">20% applied per configured async variant; ALL failure records aggregated into provenance",
+      "g0a": "failed cell recorded as failed=true; FROZEN precedence (see gates.G0A_exact_reproduction.cost_rule.failure_precedence): >20% technical failures OR zero successful seeds in an observable required cell => EXECUTION_INVALID and this OUTRANKS cost; missing-without-deadline => EXECUTION_INVALID; ONLY missing-under-clean-deadline with no invalidating cause => INCONCLUSIVE_BY_COST; the INTERRUPTED_BY_COST state record is NOT a completed science cell; n_science_cells excludes kind=state and n_ledger_records / n_science_cells / n_state_records are reported separately",
+      "record_structure": "every failure record: {exception_type, sanitized message (truncated, repo paths masked, no traceback), seed, cell, timestamp_utc}; the report schema validates this structure"
+    }
+  }
+}

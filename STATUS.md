@@ -109,4 +109,17 @@ common G1/G2 selection mask over a frozen candidate matrix; a frozen G0A failure
 precedence (technical failure OUTRANKS cost) with split ledger/science/state counters on
 a monotonic soft budget; full G0B/G0C failure records; one coherent no-resume policy; and
 enriched, non-overwritable failure ledgers.
-**No v2–v7 scientific result exists; nothing was executed; no push.**
+
+## P1.2-F addendum (minimal fix + authorized cheap-suite one-shot)
+
+Execution freeze v7 was found **NONEXECUTABLE** (`docs/audits/p1_2e_independent_audit.md`):
+prereg v7 lacked the top-level `tolerances` block that G0A/G0B read, so
+`run_suite_v2.py --plan` raised `KeyError: 'tolerances'`. The authoritative, executable
+contract is now **prereg v8** (canonical `a667434d…`, file `89616389…`) + **execution
+contract v6** (canonical `6dbe79dd…`, file `80609ef5…`) + **execution freeze v8**
+(`switchsync-synthetic-execution-v8-freeze`). v8 restores exactly the v3 tolerances
+`{sync_threshold_E12: 0.02, sync_tail_frac: 0.25}` and changes NOTHING else scientific.
+A single cheap-suite one-shot (G0B/G0C/G1G2/G3/G4; G0A NOT_RUN) is authorized under
+P1.2-F and executed against an EXTERNAL run-dir; results are sealed OUTSIDE the repo and
+NOT committed.
+**No v2–v7 scientific result exists; the cheap-suite result is external; no push.**
