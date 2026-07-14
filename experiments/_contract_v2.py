@@ -1,23 +1,22 @@
-"""Execution contract + custody for the v2 runners (P1.2 / P1.2-A / P1.2-B).
+"""Execution contract + custody for the v2 runners (P1.2-C).
 
-Two authoritative documents (defaults): the scientific prereg (synthetic_prereg_v4)
-and the operational execution contract (synthetic_execution_contract_v2). A full
-run also requires the execution freeze (freeze_execution_v4) and an EXTERNAL
---run-dir (never inside the frozen repo).
+Documents (defaults): scientific prereg v5 + execution contract v3 + freeze v5.
 
-Full-run preflight (all required, checked BEFORE any computation):
-  --i-am-authorized;
-  exact prereg canonical+file SHA and execution-contract canonical+file SHA;
-  exact freeze content hash; freeze IDENTITY (clean tree, HEAD==freeze_commit,
-  freeze_tag derefs to freeze_commit, HEAD not a descendant); manifest verify
-  (files + environment); an EXTERNAL run-dir; and the target report must not exist
-  (no silent overwrite/resume/retry).
+Identity (contract C):
+  campaign_id = sha256(prereg_canonical | exec_canonical | freeze_content | freeze_commit)[:16]
+  attempt_id  = sha256(campaign_id | execution_scope | authorization_token)[:16]
+The execution scope is CODE-DETERMINED (frozen vocabulary below), never operator
+text. The authorization token is supplied with --authorization-token and recorded
+ONLY as its SHA-256, never in clear.
 
-Outputs are written under <run-dir>/<run_id>/, where run_id is derived from the
-hashes, so scientific results NEVER land inside the frozen repo. Reports are
-*_v2.json, atomic (temp+fsync+rename), and carry full provenance including the
-scientific runner SHA, the orchestrator SHA (if a suite drove it), run_id, and the
-source/freeze/runtime commits. Import-safe.
+Provenance (contract B): each report records the SHA of the scientific runner file
+that computed it. The orchestrator SHA is set exclusively by run_suite_v2 through
+`child_context()`; there is NO CLI argument to inject it. Individual runners record
+orchestrator_sha256 = null and execution_mode = "individual:<gate>".
+
+Custody (contract D): reports are written into the attempt's staging directory;
+writing into a SEALED directory is refused; there is no overwrite/resume/retry
+without the explicit frozen policy (prereg v5 custody section). Import-safe.
 """
 from __future__ import annotations
 
@@ -28,7 +27,8 @@ import os
 import platform
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -39,22 +39,27 @@ import numpy as np  # noqa: E402
 
 from src.validation.freeze_v2 import config_canonical_hash, verify_manifest_v2  # noqa: E402
 
-DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v4.json"
-DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v2.json"
-DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v4.json"
+DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v5.json"
+DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v3.json"
+DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v5.json"
 
 VERDICTS = {"PASS", "FAIL", "INCONCLUSIVE", "EXECUTION_INVALID", "NOT_INTERPRETABLE"}
 REASON_CODES = {"INCONCLUSIVE_BY_COST", "TIE", "NOT_SIGNIFICANT",
                 "PARTIAL_NO_TSWT_DEPENDENCE", "PREREQ_FAIL", "STRESS_NOT_IMPLEMENTED",
                 "G1_WEAK_NOT_PASS", "FAILED_RUNS"}
+EXECUTION_SCOPES = {"cheap-suite", "full-suite", "g0a-only",
+                    "individual:G0A", "individual:G0B", "individual:G0C",
+                    "individual:G1G2", "individual:G3", "individual:G4"}
 
 
 class ContractError(Exception):
     """Any execution-contract violation (exit code 2)."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class RunContext:
+    """Immutable per-gate context. The suite derives child contexts with
+    child_context(); contexts are never mutated and reused ambiguously."""
     gate: str
     runner_file: str
     authorized: bool
@@ -66,6 +71,8 @@ class RunContext:
     execution: dict
     execution_canonical_hash: str
     execution_file_sha256: str
+    execution_scope: str
+    execution_mode: str
     freeze_content_hash: str | None = None
     source_commit: str | None = None
     freeze_commit: str | None = None
@@ -73,8 +80,21 @@ class RunContext:
     runtime_head: str = "unknown"
     runner_sha256: str = ""
     orchestrator_sha256: str | None = None
-    run_id: str | None = None
+    campaign_id: str | None = None
+    attempt_id: str | None = None
+    authorization_token_sha256: str | None = None
     environment: dict = field(default_factory=dict)
+
+
+def child_context(ctx: RunContext, module_file: str,
+                  orchestrator_file: str) -> RunContext:
+    """Suite-only: derive an immutable per-gate context whose runner identity is
+    the SCIENTIFIC module (not the orchestrator), with the orchestrator recorded
+    separately. This is the ONLY way orchestrator_sha256 gets set."""
+    return replace(ctx,
+                   runner_file=str(module_file),
+                   runner_sha256=_sha_file(module_file),
+                   orchestrator_sha256=_sha_file(orchestrator_file))
 
 
 def _sha_file(p) -> str:
@@ -142,9 +162,22 @@ def _native(o):
     return o
 
 
-def _run_id(prereg_c, exec_c, freeze_c, freeze_commit) -> str:
+def campaign_id_of(prereg_c, exec_c, freeze_c, freeze_commit) -> str:
     return hashlib.sha256(
         f"{prereg_c}|{exec_c}|{freeze_c}|{freeze_commit}".encode()).hexdigest()[:16]
+
+
+def attempt_id_of(campaign_id: str, scope: str, auth_token: str) -> str:
+    return hashlib.sha256(f"{campaign_id}|{scope}|{auth_token}".encode()).hexdigest()[:16]
+
+
+def failure_record(exc: BaseException, seed, cell) -> dict:
+    """Sanitized per-seed/cell failure capture (contract H): type + truncated
+    message (no traceback, no paths), seed, cell, UTC timestamp."""
+    msg = str(exc).replace(str(REPO_ROOT), "<repo>")[:200]
+    return {"exception_type": type(exc).__name__, "message": msg,
+            "seed": seed, "cell": cell,
+            "timestamp_utc": datetime.now(timezone.utc).isoformat()}
 
 
 def _is_inside_repo(p: Path) -> bool:
@@ -153,14 +186,6 @@ def _is_inside_repo(p: Path) -> bool:
         return True
     except ValueError:
         return False
-
-
-def fsync_path(p: Path) -> None:
-    fd = os.open(str(p), os.O_RDONLY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
 
 
 def add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -178,8 +203,9 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--expect-freeze-tag", default=None)
     parser.add_argument("--run-dir", default=None,
                         help="EXTERNAL output directory (must be outside the repo)")
-    parser.add_argument("--orchestrator-sha", default=None,
-                        help="SHA of the suite orchestrator, recorded in reports it drives")
+    parser.add_argument("--authorization-token", default=None,
+                        help="explicit authorization token; recorded ONLY as its SHA-256")
+    # NOTE (contract B): there is deliberately NO --orchestrator-sha argument.
 
 
 def _load(path_str):
@@ -191,21 +217,26 @@ def _load(path_str):
     return obj, config_canonical_hash(obj), hashlib.sha256(raw).hexdigest()
 
 
-def build_context(args, gate: str, runner_file: str) -> RunContext:
+def build_context(args, gate: str, runner_file: str,
+                  execution_scope: str) -> RunContext:
+    """execution_scope is CODE-DETERMINED by the caller (runner module or suite),
+    never operator-supplied text."""
+    if execution_scope not in EXECUTION_SCOPES:
+        raise ContractError(f"unknown execution scope: {execution_scope}")
     prereg, pc, pf = _load(args.prereg)
     ex, ec, ef = _load(args.execution_contract)
-    ctx = RunContext(
+    base = dict(
         gate=gate, runner_file=str(runner_file), authorized=bool(args.i_am_authorized),
         dry_run=bool(args.dry_run), out_dir=Path("."), prereg=prereg,
         prereg_canonical_hash=pc, prereg_file_sha256=pf, execution=ex,
         execution_canonical_hash=ec, execution_file_sha256=ef,
+        execution_scope=execution_scope, execution_mode=execution_scope,
         runtime_head=_git_head(), runner_sha256=_sha_file(runner_file),
-        orchestrator_sha256=getattr(args, "orchestrator_sha", None), environment=_env())
+        orchestrator_sha256=None, environment=_env())
 
     if args.dry_run:
-        return ctx
+        return RunContext(**base)
 
-    # ---- documents ----
     if not args.i_am_authorized:
         raise ContractError("full run requires --i-am-authorized (or use --dry-run)")
     req = {"--expect-prereg-canonical": args.expect_prereg_canonical,
@@ -215,7 +246,8 @@ def build_context(args, gate: str, runner_file: str) -> RunContext:
            "--expect-freeze-content-hash": args.expect_freeze_content_hash,
            "--expect-freeze-commit": args.expect_freeze_commit,
            "--expect-freeze-tag": args.expect_freeze_tag,
-           "--run-dir": args.run_dir}
+           "--run-dir": args.run_dir,
+           "--authorization-token": args.authorization_token}
     missing = [k for k, v in req.items() if v is None]
     if missing:
         raise ContractError(f"full run requires: {', '.join(missing)}")
@@ -230,19 +262,18 @@ def build_context(args, gate: str, runner_file: str) -> RunContext:
     if ex.get("binds_prereg_canonical_hash") not in (None, pc):
         raise ContractError("execution contract binds a different prereg canonical hash")
 
-    # ---- freeze identity ----
     if not _tree_clean():
         raise ContractError("working tree is not clean")
-    head = ctx.runtime_head
+    head = base["runtime_head"]
     if head != args.expect_freeze_commit:
         raise ContractError(f"HEAD ({head}) != expected freeze_commit ({args.expect_freeze_commit})")
     deref = _deref_tag(args.expect_freeze_tag)
     if deref != args.expect_freeze_commit:
-        raise ContractError(f"freeze_tag {args.expect_freeze_tag} derefs to {deref}, expected {args.expect_freeze_commit}")
+        raise ContractError(f"freeze_tag {args.expect_freeze_tag} derefs to {deref}, "
+                            f"expected {args.expect_freeze_commit}")
     if _is_descendant(args.expect_freeze_commit, head):
         raise ContractError("HEAD is a descendant of freeze_commit; refuse to run off the freeze")
 
-    # ---- freeze manifest (files + environment) ----
     freeze_path = Path(args.freeze)
     if not freeze_path.exists():
         raise ContractError(f"execution freeze not found: {freeze_path}")
@@ -253,19 +284,21 @@ def build_context(args, gate: str, runner_file: str) -> RunContext:
     if manifest.get("content_hash") != args.expect_freeze_content_hash:
         raise ContractError("execution-freeze content hash mismatch")
 
-    # ---- external run-dir + run_id + no-overwrite ----
     run_dir = Path(args.run_dir)
     if _is_inside_repo(run_dir):
         raise ContractError(f"--run-dir must be OUTSIDE the repo, got {run_dir}")
-    ctx.freeze_content_hash = manifest["content_hash"]
-    ctx.source_commit = manifest.get("git_commit")
-    ctx.freeze_commit = args.expect_freeze_commit
-    ctx.freeze_tag = args.expect_freeze_tag
-    ctx.run_id = _run_id(pc, ec, ctx.freeze_content_hash, ctx.freeze_commit)
-    # out_dir is created lazily on first write (atomic_write_report), so a suite can
-    # publish a fresh <run_id> dir by atomic rename from staging without colliding.
-    ctx.out_dir = run_dir / ctx.run_id
-    return ctx
+
+    campaign = campaign_id_of(pc, ec, manifest["content_hash"], args.expect_freeze_commit)
+    attempt = attempt_id_of(campaign, execution_scope, args.authorization_token)
+    base.update(freeze_content_hash=manifest["content_hash"],
+                source_commit=manifest.get("git_commit"),
+                freeze_commit=args.expect_freeze_commit,
+                freeze_tag=args.expect_freeze_tag,
+                campaign_id=campaign, attempt_id=attempt,
+                authorization_token_sha256=hashlib.sha256(
+                    args.authorization_token.encode()).hexdigest(),
+                out_dir=run_dir / f"{attempt}.staging")
+    return RunContext(**base)
 
 
 def provenance(ctx: RunContext, seeds, params, criterion, reason_code=None,
@@ -278,7 +311,11 @@ def provenance(ctx: RunContext, seeds, params, criterion, reason_code=None,
         "freeze_content_hash": ctx.freeze_content_hash,
         "runner_sha256": ctx.runner_sha256,
         "orchestrator_sha256": ctx.orchestrator_sha256,
-        "run_id": ctx.run_id,
+        "execution_scope": ctx.execution_scope,
+        "execution_mode": ctx.execution_mode,
+        "campaign_id": ctx.campaign_id,
+        "attempt_id": ctx.attempt_id,
+        "authorization_token_sha256": ctx.authorization_token_sha256,
         "source_commit": ctx.source_commit,
         "freeze_commit": ctx.freeze_commit,
         "freeze_tag": ctx.freeze_tag,
@@ -303,15 +340,25 @@ def validate_report_schema(report: dict) -> None:
         raise ContractError(f"invalid verdict: {report['verdict']}")
     prov_req = {"prereg_canonical_hash", "prereg_file_sha256",
                 "execution_contract_canonical_hash", "execution_contract_file_sha256",
-                "freeze_content_hash", "runner_sha256", "orchestrator_sha256", "run_id",
-                "source_commit", "freeze_commit", "freeze_tag", "runtime_head",
-                "environment", "seeds", "params", "criterion", "failures"}
+                "freeze_content_hash", "runner_sha256", "orchestrator_sha256",
+                "execution_scope", "execution_mode", "campaign_id", "attempt_id",
+                "authorization_token_sha256", "source_commit", "freeze_commit",
+                "freeze_tag", "runtime_head", "environment", "seeds", "params",
+                "criterion", "failures"}
     pm = prov_req - set(report.get("provenance", {}))
     if pm:
         raise ContractError(f"provenance missing fields: {pm}")
     rc = report.get("provenance", {}).get("reason_code")
     if rc is not None and rc not in REASON_CODES:
         raise ContractError(f"invalid reason_code: {rc}")
+
+
+def fsync_path(p: Path) -> None:
+    fd = os.open(str(p), os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def _atomic_write(path: Path, obj: dict) -> None:
@@ -329,7 +376,10 @@ def _atomic_write(path: Path, obj: dict) -> None:
 def atomic_write_report(ctx: RunContext, name: str, report: dict) -> Path:
     if not name.endswith("_v2.json"):
         raise ContractError(f"report name must end with _v2.json: {name}")
-    out = ctx.out_dir / name
+    out_dir = Path(ctx.out_dir)
+    if (out_dir / "SEALED").exists():
+        raise ContractError(f"attempt is SEALED; refusing any further write: {out_dir}")
+    out = out_dir / name
     if out.exists():
         raise ContractError(f"refusing to overwrite existing report (no resume/retry policy): {out}")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -338,12 +388,16 @@ def atomic_write_report(ctx: RunContext, name: str, report: dict) -> Path:
 
 
 def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
-            argv=None) -> int:
+            execution_scope: str, argv=None) -> int:
+    """Entry point for an INDIVIDUAL gate runner. Publishes its own sealed
+    single-report attempt bundle (contract C/D)."""
+    import _custody
+
     parser = argparse.ArgumentParser(description=f"v2 runner: {gate}")
     add_common_args(parser)
     args = parser.parse_args(argv)
     try:
-        ctx = build_context(args, gate, runner_file)
+        ctx = build_context(args, gate, runner_file, execution_scope)
     except ContractError as e:
         print(f"CONTRACT ERROR: {e}", file=sys.stderr)
         return 2
@@ -351,15 +405,65 @@ def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
         print(json.dumps({"gate": gate, "dry_run": True, "wrote_report": False,
                           "plan": plan_fn(ctx)}, indent=2, default=str))
         return 0
-    try:
-        report = compute_fn(ctx)
-        validate_report_schema(report)
-        out = atomic_write_report(ctx, report_name, report)
-    except ContractError as e:
-        print(f"CONTRACT ERROR: {e}", file=sys.stderr)
+
+    run_dir = Path(args.run_dir)
+    lock = _custody.AttemptLock(run_dir, ctx.attempt_id)
+    if not lock.acquire():
+        print(f"CONTRACT ERROR: attempt {ctx.attempt_id} already running (lock held)",
+              file=sys.stderr)
         return 2
-    except Exception as e:
-        print(f"EXECUTION ERROR: {type(e).__name__}: {e}", file=sys.stderr)
-        return 1
-    print(f"wrote {out}  verdict={report['verdict']}")
-    return 0
+    started = _custody.utc_now()
+    try:
+        if _custody.final_dir(run_dir, ctx.attempt_id).exists():
+            print(f"CONTRACT ERROR: attempt already published: {ctx.attempt_id}",
+                  file=sys.stderr)
+            return 2
+        staging = _custody.staging_dir(run_dir, ctx.attempt_id)
+        if staging.exists() or _custody.interrupted_dir(run_dir, ctx.attempt_id).exists():
+            print("CONTRACT ERROR: prior staging/interrupted state exists; resume "
+                  "requires --resume-authorized-attempt (frozen policy)", file=sys.stderr)
+            return 2
+        staging.mkdir(parents=True)
+        try:
+            report = compute_fn(ctx)
+            validate_report_schema(report)
+            out = atomic_write_report(ctx, report_name, report)
+        except ContractError as e:
+            _custody.write_failure_ledger(run_dir, ctx.attempt_id,
+                                          [{"gate": gate, "error": str(e)}])
+            _custody.mark_interrupted(run_dir, ctx.attempt_id)
+            print(f"CONTRACT ERROR: {e}", file=sys.stderr)
+            return 2
+        except KeyboardInterrupt:
+            _custody.mark_interrupted(run_dir, ctx.attempt_id)
+            print("INTERRUPTED: staging preserved as .interrupted; no auto-retry",
+                  file=sys.stderr)
+            return 130
+        except Exception as e:
+            _custody.write_failure_ledger(run_dir, ctx.attempt_id,
+                                          [failure_record(e, None, gate)])
+            _custody.mark_interrupted(run_dir, ctx.attempt_id)
+            print(f"EXECUTION ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+            return 1
+        import hashlib as _h
+        manifest = _custody.build_attempt_manifest(
+            campaign_id=ctx.campaign_id, attempt_id=ctx.attempt_id,
+            execution_scope=ctx.execution_scope,
+            hashes={"prereg_canonical": ctx.prereg_canonical_hash,
+                    "prereg_file_sha256": ctx.prereg_file_sha256,
+                    "execution_contract_canonical": ctx.execution_canonical_hash,
+                    "execution_contract_file_sha256": ctx.execution_file_sha256,
+                    "freeze_content_hash": ctx.freeze_content_hash},
+            head=ctx.runtime_head, tag=ctx.freeze_tag,
+            normalized_command=f"run:{gate} scope:{ctx.execution_scope}",
+            runner_shas={gate: ctx.runner_sha256}, orchestrator_sha=None,
+            started_utc=started, ended_utc=_custody.utc_now(), exit_status=0,
+            reports={report_name: _h.sha256(out.read_bytes()).hexdigest()},
+            checkpoint_sha=None, gate_verdicts={gate: report["verdict"]},
+            environment=ctx.environment)
+        _custody.seal_and_publish(staging, _custody.final_dir(run_dir, ctx.attempt_id),
+                                  manifest)
+        print(f"published sealed attempt {ctx.attempt_id} verdict={report['verdict']}")
+        return 0
+    finally:
+        lock.release()

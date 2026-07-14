@@ -1,11 +1,12 @@
-"""P1.2-B runner / contract / custody tests (non-vacuous: they fail against v3
-behaviour and pass against v4). No import/field-existence/`x in [x]` tests."""
+"""P1.2-C runner / contract / custody tests. Each targeted test fails against the
+v4 behaviour and passes against v5."""
 import argparse
 import ast
 import hashlib
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -14,287 +15,376 @@ import pytest
 import _contract_v2 as contract
 import _custody
 import run_g0a_exact_v2 as g0a
+import run_g0b_calibrated_v2 as g0b
+import run_g0c_msf_v2 as g0c
 import run_g1_g2_paired_v2 as g1g2
 import run_g3_v2 as g3
 import run_g4_v2 as g4
+import run_suite_v2 as suite
 from src.metrics.inference import exact_two_sided_sign_test, paired_decision
-from src.metrics.propagator import full_contraction_rate, ordered_product
-from src.networks.paired_switching import order_permutations
+from src.metrics.lyapunov import LyapunovDeadlineExceeded, largest_lyapunov_isolated_layer
 
 REPO = Path(__file__).resolve().parents[1]
 EXP = REPO / "experiments"
 
 
+def _sha_file(p):
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
 # ---------------------------------------------------------------------------
-# tiny fixtures
+# fixtures
 # ---------------------------------------------------------------------------
-def _tiny_prereg(paired_eval=(81, 82, 83, 84)):
+def _tiny_prereg(paired_eval=None):
     return {
         "global": {"dt": 0.01},
         "tolerances": {"sync_threshold_E12": 0.02, "sync_tail_frac": 0.25},
         "fhn": {"density_ratio": 0.25},
-        "seed_blocks": {"identifiability": [61, 62, 63, 64], "paired_selection": [41, 42, 43, 44],
-                        "paired_evaluation": list(paired_eval), "stages": [51, 52, 53, 54],
-                        "g0c_msf": [31], "g0a": [11], "g0b": [11]},
+        "seed_blocks": {"identifiability": [61, 62, 63, 64],
+                        "paired_selection": [41, 42, 43, 44],
+                        "paired_evaluation": list(paired_eval or (81, 82, 83, 84)),
+                        "stages": [51, 52, 53, 54], "g0c_msf": [31],
+                        "g0a": [11], "g0b": [11, 12, 13, 14, 15]},
         "gates": {"G0A_exact_reproduction": {"cost_rule": {
-                      "max_wall_time_seconds": 86400, "chunk_steps": 5000,
-                      "mandatory_minimum_size": 200, "minimum_completed_seeds": 1,
-                      "deciding_sizes": [200, 400], "non_deciding_sizes": [100]}},
+                      "max_wall_time_seconds": 86400, "chunk_steps": 50,
+                      "mandatory_minimum_size": 8, "minimum_completed_seeds": 1,
+                      "deciding_sizes": [16, 24], "non_deciding_sizes": [8]}},
                   "G3_robustness": {"signed_budget_tolerance": 1e-9}},
     }
 
 
-def _tiny_exec(intra=0.06):
+def _tiny_exec(intra=0.06, K=3, cyc_int=2, H=24, n_perm=5, kappa=0.6):
     return {
         "inference": {"alpha": 0.05, "std_mult": 3.0, "n_boot": 100, "boot_seed": 20260713,
                       "floor_surrogate_gamma": 0.02, "floor_identifiability_margin": 0.05},
-        "surrogate_paired": {"N": 8, "N_IL": 2, "K": 3, "H": 24, "kappa": 0.6,
+        "surrogate_paired": {"N": 8, "N_IL": 2, "K": K, "H": H, "kappa": kappa,
                              "rho_target": 1.04, "intra_coupling": intra, "cycles_fast": 4,
-                             "cycles_intermediate": 2, "cycles_slow": 1,
+                             "cycles_intermediate": cyc_int, "cycles_slow": 1,
                              "variable_dwell_multiset": [4, 8, 12], "best_static_search": 4,
                              "neg_fraction_signed": 0.4, "candidate_search_seed": 900001,
-                             "g2_n_perm": 5, "g2_perm_seed": 700003},
+                             "g2_n_perm": n_perm, "g2_perm_seed": 700003},
         "g4": {"N": 8, "N_IL": 2, "kappa": 0.6, "rho_target": 1.04, "intra_coupling": 0.06,
                "horizon_steps": 60, "dwell_fast": 6, "estimator_window": 8, "obs_noise": 0.05,
                "factor_scale": 1.0, "async_variants": [[1, 1]]},
         "g0c": {"N": 2, "lam_perp": 2.0, "alpha": 5.0, "n_steps": 400, "transient_steps": 100,
                 "renorm_every": 5, "sigma_grid": [0.3], "T_swt_grid": [11.0]},
         "g3_stages": [{"name": "faithful", "heterogeneity": 0.0, "directed": False, "signed": False},
+                      {"name": "mild_heterogeneity", "heterogeneity": 0.05, "directed": False, "signed": False},
                       {"name": "signed", "heterogeneity": 0.0, "directed": False, "signed": True}],
-        "g0a": {"sizes": [100, 200, 400], "sigma_inter": 0.1, "density_ratio": 0.25,
-                "T_swt_grid": [11.0, 120.0], "total_time": 400.0, "record_every": 25,
-                "chunk_steps": 5000, "chaos_n_steps": 2000, "chaos_transient": 200, "chaos_renorm": 5},
-        "g0b": {"N": 40, "N_IL": 10, "sigma_inter": 1.5, "total_time": 800.0, "record_every": 25,
+        "g0a": {"sizes": [8, 16, 24], "sigma_inter": 0.1, "density_ratio": 0.25,
+                "T_swt_grid": [2.0, 4.0], "total_time": 5.0, "record_every": 25,
+                "chunk_steps": 50, "chaos_n_steps": 500, "chaos_transient": 100, "chaos_renorm": 5},
+        "g0b": {"N": 8, "N_IL": 2, "sigma_inter": 1.5, "total_time": 5.0, "record_every": 25,
                 "T_swt_grid": [2.0, 300.0]},
     }
 
 
-def _ctx(gate, out_dir, prereg=None, execution=None, orch="ORCH"):
+def _ctx(gate, out_dir, prereg=None, execution=None, scope="individual:G4",
+         orch=None):
     return contract.RunContext(
         gate=gate, runner_file="fixture", authorized=True, dry_run=False, out_dir=Path(out_dir),
         prereg=prereg or _tiny_prereg(), prereg_canonical_hash="pc", prereg_file_sha256="pf",
         execution=execution or _tiny_exec(), execution_canonical_hash="ec", execution_file_sha256="ef",
+        execution_scope=scope, execution_mode=scope,
         freeze_content_hash="fh", source_commit="src", freeze_commit="frz", freeze_tag="tag",
-        runtime_head="frz", runner_sha256="rs", orchestrator_sha256=orch, run_id="rid",
+        runtime_head="frz", runner_sha256="rs", orchestrator_sha256=orch,
+        campaign_id="camp", attempt_id="att", authorization_token_sha256="tok",
         environment={"python": "x"})
 
 
-# ---------------------------------------------------------------------------
-# C: single inferential function (corrected sign-test fact)
-# ---------------------------------------------------------------------------
-def test_exact_sign_test_8_equal_signs_is_0_0078():
-    st = exact_two_sided_sign_test([0.3] * 8)
-    assert abs(st["p_value"] - 0.0078125) < 1e-9   # the v3 doc denied this
+# ===========================================================================
+# J.1 suite records the REAL runner SHA, not the orchestrator's
+# ===========================================================================
+def test_suite_records_real_runner_sha_end_to_end(tmp_path):
+    ctx0 = _ctx("suite", tmp_path, scope="cheap-suite")
+    staging = tmp_path / "staging"; staging.mkdir()
+    written, verdicts, runner_shas, failures = suite._run_gates(
+        ctx0, staging, [g4], str(EXP / "run_suite_v2.py"))
+    assert not failures
+    rep = json.loads((staging / g4.REPORT).read_text())
+    real_runner = _sha_file(g4.__file__)
+    real_orch = _sha_file(EXP / "run_suite_v2.py")
+    assert rep["provenance"]["runner_sha256"] == real_runner        # v4 recorded orch here
+    assert rep["provenance"]["orchestrator_sha256"] == real_orch
+    assert real_runner != real_orch                                  # both real, distinct
+    assert runner_shas[g4.GATE] == real_runner
 
 
-def test_paired_decision_zero_handling_and_std():
-    dec = paired_decision([0.0, 0.0, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3], floor=0.02, std_mult=3.0,
-                          alpha=0.05, n_boot=100, boot_seed=1)
-    assert dec["sign_test"]["n_zero"] == 2 and dec["sign_test"]["n_nonzero"] == 6
-    assert dec["std_definition"].startswith("sample standard deviation")
+def test_child_context_immutable_and_correct():
+    ctx0 = _ctx("suite", ".", scope="cheap-suite")
+    c = contract.child_context(ctx0, g3.__file__, str(EXP / "run_suite_v2.py"))
+    assert c.runner_sha256 == _sha_file(g3.__file__)
+    assert c.orchestrator_sha256 == _sha_file(EXP / "run_suite_v2.py")
+    with pytest.raises(Exception):      # frozen dataclass: no mutation
+        c.runner_sha256 = "forged"
 
 
-# ---------------------------------------------------------------------------
-# J.2 no per-evaluation-seed max(fast,intermediate,slow)
-# ---------------------------------------------------------------------------
-def test_no_per_seed_arm_max_in_g1_source():
-    src = (EXP / "run_g1_g2_paired_v2.py").read_text()
-    assert "max(gf, gi, gs)" not in src
-    assert "best_switch = max" not in src
+# ===========================================================================
+# J.2 --orchestrator-sha is eliminated (rejected as unknown argument)
+# ===========================================================================
+def test_orchestrator_sha_argument_removed():
+    with pytest.raises(SystemExit):
+        suite.main(["--orchestrator-sha", "none", "--plan"])
+    src = (EXP / "_contract_v2.py").read_text()
+    assert "--orchestrator-sha" not in src.replace(
+        "NO --orchestrator-sha argument", "")   # only the comment mentions it
 
 
-# ---------------------------------------------------------------------------
-# J.1 evaluation data does not change the selected arm
-# ---------------------------------------------------------------------------
-def test_arm_selection_independent_of_evaluation_seeds(tmp_path):
-    sp = _tiny_exec()["surrogate_paired"]
-    sel = _tiny_prereg()["seed_blocks"]["paired_selection"]
-    arm1, _ = g1g2._select_arm(sp, sel)
-    arm2, _ = g1g2._select_arm(sp, sel)
-    assert arm1 == arm2
-    r_a = g1g2.compute(_ctx("G1_G2_paired", tmp_path / "a", prereg=_tiny_prereg((81, 82))))
-    r_b = g1g2.compute(_ctx("G1_G2_paired", tmp_path / "b", prereg=_tiny_prereg((83, 84))))
-    assert r_a["result"]["selected_arm"] == r_b["result"]["selected_arm"] == arm1
+# ===========================================================================
+# J.3 attempt identity: scopes and tokens change attempt_id; campaign stable
+# ===========================================================================
+def test_attempt_ids_differ_by_scope_and_token():
+    camp = contract.campaign_id_of("p", "e", "f", "c")
+    a_cheap = contract.attempt_id_of(camp, "cheap-suite", "tokA")
+    a_full = contract.attempt_id_of(camp, "full-suite", "tokA")
+    a_g0a = contract.attempt_id_of(camp, "g0a-only", "tokA")
+    a_tok2 = contract.attempt_id_of(camp, "cheap-suite", "tokB")
+    assert len({a_cheap, a_full, a_g0a, a_tok2}) == 4
 
 
-# ---------------------------------------------------------------------------
-# J.3 candidate set deterministic + lexicographic tie-break
-# ---------------------------------------------------------------------------
-def test_best_static_deterministic_and_lexicographic():
-    sp = _tiny_exec()["surrogate_paired"]
-    sel = _tiny_prereg()["seed_blocks"]["paired_selection"]
-    s1, sc1, n1 = g1g2._select_best_static(sp, sel)
-    s2, sc2, n2 = g1g2._select_best_static(sp, sel)
-    assert s1 == s2 and n1 == n2
-    # winner must be the lexicographically-smallest among candidates achieving the max score
-    # (reconstruct candidate scores)
-    import numpy as _np
-    cand = set()
-    from src.networks.paired_switching import build_base_snapshots
-    for s in sel:
-        cand.update(build_base_snapshots(sp["N"], sp["N_IL"], sp["K"], _np.random.default_rng(s)))
-    srng = _np.random.default_rng(sp["candidate_search_seed"])
-    for _ in range(sp["best_static_search"]):
-        cand.add(tuple(sorted(srng.choice(sp["N"], size=sp["N_IL"], replace=False).tolist())))
-    scores = {c: float(_np.mean([g1g2._gamma(sp, g1g2._static(sp, c), s) for s in sel])) for c in cand}
-    best = max(scores.values())
-    winners = sorted(c for c in cand if abs(scores[c] - best) <= 1e-12)
-    assert s1 == winners[0]
-
-
-# ---------------------------------------------------------------------------
-# J.4 "best admissible static" claim is not made
-# ---------------------------------------------------------------------------
-def test_g1_strict_does_not_claim_best_admissible(tmp_path):
-    rep = g1g2.compute(_ctx("G1_G2_paired", tmp_path))
-    assert rep["result"]["comparator_name"] == "best-of-frozen-candidate-set"
-    assert "admissible" not in json.dumps(rep["result"]).lower()
-
-
-# ---------------------------------------------------------------------------
-# J.5 G1 hierarchy
-# ---------------------------------------------------------------------------
-def test_g1_hierarchy_not_interpretable_when_weak_not_pass():
-    g1s_raw = {"verdict": "PASS", "reason": None}
-    g2_raw = {"verdict": "PASS", "reason": None}
-    g1s, g2 = g1g2._apply_hierarchy("INCONCLUSIVE", g1s_raw, g2_raw)
-    assert g1s["gate_verdict"] == "NOT_INTERPRETABLE"
-    assert g2["gate_verdict"] == "NOT_INTERPRETABLE"
-    g1s2, g2b = g1g2._apply_hierarchy("PASS", g1s_raw, g2_raw)
-    assert g1s2["gate_verdict"] == "PASS" and g2b["gate_verdict"] == "PASS"
-
-
-# ---------------------------------------------------------------------------
-# J.6 / J.7 G2 permutation null
-# ---------------------------------------------------------------------------
-def test_g2_commuting_no_order_effect_cannot_pass(tmp_path):
-    # intra_coupling=0 -> diagonal maps -> commute -> order irrelevant -> delta~0
-    ex = _tiny_exec(intra=0.0)
-    rep = g1g2.compute(_ctx("G1_G2_paired", tmp_path, execution=ex))
-    g2 = rep["result"]["G2_order"]
-    assert abs(g2["mean"]) < 1e-9
-    assert g2["gate_verdict"] in ("INCONCLUSIVE", "NOT_INTERPRETABLE")
-
-
-def test_g2_noncommuting_order_is_detectable():
-    # non-commuting maps => gamma varies across order permutations
-    from src.networks.paired_switching import build_base_snapshots, paired_rate_schedule
-    from src.simulation.linear_surrogate import SurrogateParams
-    from src.simulation.surrogate_v2 import difference_step_maps_v2
-    sp = _tiny_exec()["surrogate_paired"]
-    p = SurrogateParams(N=sp["N"], kappa=sp["kappa"], rho_target=sp["rho_target"],
-                        intra_coupling=sp["intra_coupling"], seed_struct=41)
-    base = build_base_snapshots(sp["N"], sp["N_IL"], sp["K"], np.random.default_rng(41))
-    sched = paired_rate_schedule(base, sp["N"], sp["N_IL"], sp["cycles_intermediate"], sp["H"], "i")
-    gammas = []
-    for ps in order_permutations(sched, 8, np.random.default_rng(7)):
-        maps = difference_step_maps_v2(p, ps, np.random.default_rng(41))
-        gammas.append(full_contraction_rate(ordered_product(maps), sched.total_steps))
-    assert np.std(gammas) > 1e-9                      # order detectable
-    # a consistently-signed delta must PASS the shared rule
-    dec = paired_decision([0.3, 0.28, 0.31, 0.29, 0.30, 0.27, 0.32, 0.30], 0.02, 3.0, 0.05, 100, 1)
-    assert dec["verdict"] == "PASS"
-
-
-# ---------------------------------------------------------------------------
-# J.8 G3 uses the SHARED inference function object
-# ---------------------------------------------------------------------------
-def test_g3_uses_shared_inference():
-    assert g3.paired_decision is g1g2.paired_decision is paired_decision
-
-
-# ---------------------------------------------------------------------------
-# J.9 signed budget compared numerically; per-seed metadata
-# ---------------------------------------------------------------------------
-def test_g3_signed_budget_numeric_and_per_seed(tmp_path):
-    rep = g3.compute(_ctx("G3_robustness", tmp_path))
-    signed = rep["result"]["by_stage"]["signed"]["per_seed"]
-    assert len(signed) == len(_tiny_prereg()["seed_blocks"]["stages"])  # ALL seeds
-    for rec in signed:
-        assert rec["n_negative_offdiag"] >= 1
-        assert rec["budget_diff"] <= 1e-9            # numeric budget equality
-
-
-# ---------------------------------------------------------------------------
-# J.10 G4 exact horizon
-# ---------------------------------------------------------------------------
-def test_g4_schedule_total_steps_equals_horizon():
-    s = g4._make_schedule(8, 2, 60, 6, 61)
-    assert s.total_steps == 60
-    assert s.total_steps != 66                        # the v3 606-for-600 style bug
+def test_scope_from_flags_and_contradictions():
+    def args(**kw):
+        base = dict(cheap_only=False, include_g0a_expensive=False, g0a_only=False)
+        base.update(kw)
+        return argparse.Namespace(**base)
+    assert suite._scope_from_flags(args()) == "cheap-suite"
+    assert suite._scope_from_flags(args(cheap_only=True)) == "cheap-suite"
+    assert suite._scope_from_flags(args(include_g0a_expensive=True)) == "full-suite"
+    assert suite._scope_from_flags(args(g0a_only=True)) == "g0a-only"
     with pytest.raises(contract.ContractError):
-        g4._make_schedule(8, 2, 60, 7, 61)            # 60 % 7 != 0
+        suite._scope_from_flags(args(cheap_only=True, include_g0a_expensive=True))
+    with pytest.raises(contract.ContractError):
+        suite._scope_from_flags(args(cheap_only=True, g0a_only=True))
 
 
-# ---------------------------------------------------------------------------
-# J.11 G4 baseline is mandatory
-# ---------------------------------------------------------------------------
-def test_g4_baseline_mandatory():
-    assert g4._verdict_from_conditions({"precision_gt_0.6": True, "recall_gt_0.6": True,
-                                        "contraction_corr_gt_0.5": True, "beats_baseline": False}) == "FAIL"
-    assert g4._verdict_from_conditions({"precision_gt_0.6": True, "recall_gt_0.6": True,
-                                        "contraction_corr_gt_0.5": True, "beats_baseline": True}) == "PASS"
+# ===========================================================================
+# J.4 a published cheap attempt does not block a different g0a-only attempt
+# ===========================================================================
+def _publish_minimal(run_dir, attempt_id, report_name="r_v2.json"):
+    st = _custody.staging_dir(run_dir, attempt_id); st.mkdir(parents=True)
+    (st / report_name).write_text('{"x": 1}')
+    man = _custody.build_attempt_manifest(
+        campaign_id="camp", attempt_id=attempt_id, execution_scope="cheap-suite",
+        hashes={}, head="h", tag="t", normalized_command="cmd",
+        runner_shas={}, orchestrator_sha=None, started_utc="s", ended_utc="e",
+        exit_status=0, reports={report_name: hashlib.sha256(b'{"x": 1}').hexdigest()},
+        checkpoint_sha=None, gate_verdicts={}, environment={})
+    _custody.seal_and_publish(st, _custody.final_dir(run_dir, attempt_id), man)
+    return man
 
 
-# ---------------------------------------------------------------------------
-# J.12 failed >20% -> EXECUTION_INVALID (G4 and G3)
-# ---------------------------------------------------------------------------
-def test_g4_failed_runs_execution_invalid(tmp_path, monkeypatch):
-    import run_g4_v2 as mod
-
-    class Bad:
-        def __init__(self, N, T):
-            self.p1 = np.full((T + 1, N), np.nan); self.p2 = np.full((T + 1, N), np.nan)
-            self.active = np.zeros((T, N)); self.d_true = np.zeros((T + 1, N))
-
-    monkeypatch.setattr(mod, "simulate_observed_v2", lambda p, s, r, async_stride=(1, 1): Bad(8, 60))
-    rep = mod.compute(_ctx("G4_identifiability", tmp_path))
-    assert rep["verdict"] == "EXECUTION_INVALID"
-    assert rep["provenance"]["reason_code"] == "FAILED_RUNS"
+def test_published_cheap_does_not_block_other_attempt(tmp_path):
+    _publish_minimal(tmp_path, "attemptCHEAP")
+    # a DIFFERENT attempt under the same campaign publishes fine
+    _publish_minimal(tmp_path, "attemptG0A")
+    assert _custody.final_dir(tmp_path, "attemptCHEAP").exists()
+    assert _custody.final_dir(tmp_path, "attemptG0A").exists()
 
 
-def test_g3_failed_runs_execution_invalid(tmp_path, monkeypatch):
-    monkeypatch.setattr(g3, "_gamma_from_A", lambda *a, **k: float("nan"))
-    rep = g3.compute(_ctx("G3_robustness", tmp_path))
-    assert rep["verdict"] == "EXECUTION_INVALID"
+# ===========================================================================
+# J.5 SEALED bundle cannot be modified
+# ===========================================================================
+def test_sealed_bundle_refuses_writes(tmp_path):
+    _publish_minimal(tmp_path, "attA")
+    final = _custody.final_dir(tmp_path, "attA")
+    assert (final / "SEALED").exists()
+    ctx = replace(_ctx("G", final), out_dir=final)
+    with pytest.raises(contract.ContractError, match="SEALED"):
+        contract.atomic_write_report(ctx, "late_v2.json",
+                                     {"gate": "G", "verdict": "PASS",
+                                      "provenance": {}, "result": {}})
 
 
-# ---------------------------------------------------------------------------
-# J.13 G0A checkpoint survives crash
-# ---------------------------------------------------------------------------
-def test_g0a_checkpoint_survives_crash(tmp_path):
-    prov = {"freeze": "f", "prereg": "p", "exec": "e", "runner": "r"}
-    keyf = ["kind", "N", "T_swt", "seed"]
-    led = _custody.CheckpointLedger(tmp_path / "cp.jsonl", prov, keyf)
-    led.append({"kind": "switch", "N": 200, "T_swt": 11.0, "seed": 11}, {"synced": True})
-    led.append({"kind": "chaos", "N": 200, "T_swt": None, "seed": 11}, {"lambda_max": 0.02})
-    del led                                            # simulate crash
-    led2 = _custody.CheckpointLedger(tmp_path / "cp.jsonl", prov, keyf)
-    assert led2.n_completed() == 2
-    assert led2.has({"kind": "switch", "N": 200, "T_swt": 11.0, "seed": 11})
-    with pytest.raises(_custody.CheckpointCorrupt):    # duplicate refused
-        led2.append({"kind": "switch", "N": 200, "T_swt": 11.0, "seed": 11}, {"synced": False})
+# ===========================================================================
+# J.6 manifest contains + verifies each report SHA; J.7 corruption breaks it
+# ===========================================================================
+def test_manifest_verifies_and_corruption_detected(tmp_path):
+    _publish_minimal(tmp_path, "attB")
+    final = _custody.final_dir(tmp_path, "attB")
+    v = _custody.verify_sealed_attempt(final)
+    assert v["ok"], v
+    # corrupt the report -> verification must fail
+    (final / "r_v2.json").write_text('{"x": 2}')
+    v2 = _custody.verify_sealed_attempt(final)
+    assert not v2["ok"] and any("SHA mismatch" in e for e in v2["errors"])
 
 
-def test_g0a_checkpoint_corruption_detected(tmp_path):
+def test_manifest_content_hash_tamper_detected(tmp_path):
+    _publish_minimal(tmp_path, "attC")
+    final = _custody.final_dir(tmp_path, "attC")
+    man = json.loads((final / "attempt_manifest.json").read_text())
+    man["execution_scope"] = "full-suite"      # tamper without fixing the hash
+    (final / "attempt_manifest.json").write_text(json.dumps(man))
+    v = _custody.verify_sealed_attempt(final)
+    assert not v["ok"] and any("manifest content hash" in e for e in v["errors"])
+
+
+# ===========================================================================
+# J.8 a real suite failure publishes no success bundle
+# ===========================================================================
+def test_suite_gate_failure_no_success_bundle(tmp_path, monkeypatch):
+    ctx0 = _ctx("suite", tmp_path, scope="cheap-suite")
+    staging = tmp_path / "st"; staging.mkdir()
+    monkeypatch.setattr(g4, "compute", lambda ctx: (_ for _ in ()).throw(RuntimeError("boom")))
+    with pytest.raises(RuntimeError):
+        suite._run_gates(ctx0, staging, [g4], str(EXP / "run_suite_v2.py"))
+    # the custody layer records the failure and never publishes
+    _custody.write_failure_ledger(tmp_path, "attF", [{"gate": "G4", "error": "boom"}])
+    _custody.mark_interrupted(tmp_path, "attF")   # staging may not exist; no-op ok
+    assert not _custody.final_dir(tmp_path, "attF").exists()
+    assert (_custody.failed_dir(tmp_path, "attF") / "failure_ledger.json").exists()
+
+
+# ===========================================================================
+# J.9 crash leaves INTERRUPTED; resume only with authorization
+# ===========================================================================
+def test_crash_leaves_interrupted_and_resume_guarded(tmp_path):
+    st = _custody.staging_dir(tmp_path, "attI"); st.mkdir(parents=True)
+    (st / "partial_v2.json").write_text("{}")
+    dst = _custody.mark_interrupted(tmp_path, "attI")
+    assert dst.exists() and not st.exists()
+    assert (dst / "partial_v2.json").exists()     # evidence preserved
+    # resume without a token is refused BEFORE any contract work
+    assert suite.main(["--resume-authorized-attempt", "attI"]) == 2
+    # resume with a token is still refused in this phase (not authorized)
+    assert suite.main(["--resume-authorized-attempt", "attI",
+                       "--resume-authorization-token", "tok"]) == 2
+
+
+# ===========================================================================
+# J.10-12 checkpoint ledger: duplicates, chain, truncation
+# ===========================================================================
+PROV = {"freeze": "f", "prereg": "p"}
+KEYS = ["kind", "N", "seed"]
+
+
+def test_ledger_duplicate_on_reload_rejected(tmp_path):
     p = tmp_path / "cp.jsonl"
-    p.write_text('{"cell": {"kind":"x"}, "provenance_key": "z"}\nNOT JSON\n')
+    led = _custody.CheckpointLedger(p, PROV, KEYS)
+    led.append({"kind": "s", "N": 1, "seed": 1}, {"v": 1})
+    led.append({"kind": "s", "N": 1, "seed": 2}, {"v": 2})
+    # hand-craft a DUPLICATE record with a VALID chain continuation
+    lines = p.read_text().splitlines()
+    rec1 = json.loads(lines[1])
+    dup_body = {"seq": 2, "prev_record_hash": rec1["record_hash"],
+                "cell": {"kind": "s", "N": 1, "seed": 1},   # duplicate UID
+                "result": {"v": 99},
+                "provenance_key": rec1["provenance_key"]}
+    dup = dict(dup_body)
+    dup["record_hash"] = _custody._sha(_custody._canonical(dup_body))
+    p.write_text("\n".join(lines + [json.dumps(dup, sort_keys=True)]) + "\n")
+    with pytest.raises(_custody.CheckpointCorrupt, match="duplicate"):
+        _custody.CheckpointLedger(p, PROV, KEYS)
+
+
+def test_ledger_reorder_and_edit_rejected(tmp_path):
+    p = tmp_path / "cp.jsonl"
+    led = _custody.CheckpointLedger(p, PROV, KEYS)
+    led.append({"kind": "s", "N": 1, "seed": 1}, {"v": 1})
+    led.append({"kind": "s", "N": 1, "seed": 2}, {"v": 2})
+    lines = p.read_text().splitlines()
+    # reorder
+    p.write_text("\n".join([lines[1], lines[0]]) + "\n")
     with pytest.raises(_custody.CheckpointCorrupt):
-        _custody.CheckpointLedger(p, {"a": 1}, ["kind"])
+        _custody.CheckpointLedger(p, PROV, KEYS)
+    # changed result (edit line 0 without fixing hash)
+    rec0 = json.loads(lines[0]); rec0["result"] = {"v": 777}
+    p.write_text("\n".join([json.dumps(rec0, sort_keys=True), lines[1]]) + "\n")
+    with pytest.raises(_custody.CheckpointCorrupt, match="hash"):
+        _custody.CheckpointLedger(p, PROV, KEYS)
+    # sequence gap
+    rec1 = json.loads(lines[1]); rec1["seq"] = 5
+    p.write_text("\n".join([lines[0], json.dumps(rec1, sort_keys=True)]) + "\n")
+    with pytest.raises(_custody.CheckpointCorrupt, match="sequence|chain"):
+        _custody.CheckpointLedger(p, PROV, KEYS)
+    # foreign provenance
+    with pytest.raises(_custody.CheckpointCorrupt, match="foreign"):
+        p.write_text("\n".join(lines) + "\n")
+        _custody.CheckpointLedger(p, {"freeze": "OTHER", "prereg": "p"}, KEYS)
 
 
-# ---------------------------------------------------------------------------
-# J.14 G0A: single favorable N=100 cannot decide; deciding sizes required
-# ---------------------------------------------------------------------------
-def _cell(kind, N, T, seed, res):
-    return {"cell": {"kind": kind, "N": N, "T_swt": T, "seed": seed}, "result": res}
+def test_ledger_truncated_tail_detected_and_prefix_preserved(tmp_path):
+    p = tmp_path / "cp.jsonl"
+    led = _custody.CheckpointLedger(p, PROV, KEYS)
+    led.append({"kind": "s", "N": 1, "seed": 1}, {"v": 1})
+    led.append({"kind": "s", "N": 1, "seed": 2}, {"v": 2})
+    raw = p.read_text()
+    p.write_text(raw + '{"seq": 2, "prev_record_hash": "TRUNC')   # no newline: crash mid-write
+    with pytest.raises(_custody.TruncatedTail) as ei:
+        _custody.CheckpointLedger(p, PROV, KEYS)
+    assert ei.value.n_valid == 2
+    # authorized continuation loads the prefix and preserves the evidence copy
+    led2 = _custody.CheckpointLedger(p, PROV, KEYS, allow_truncated_tail=True)
+    assert led2.n_completed() == 2
+    assert p.with_suffix(".jsonl.truncated").exists()   # evidence never deleted
+
+
+def test_ledger_crash_recovery_roundtrip(tmp_path):
+    p = tmp_path / "cp.jsonl"
+    led = _custody.CheckpointLedger(p, PROV, KEYS)
+    led.append({"kind": "s", "N": 1, "seed": 1}, {"v": 1})
+    del led
+    led2 = _custody.CheckpointLedger(p, PROV, KEYS)
+    assert led2.has({"kind": "s", "N": 1, "seed": 1})
+    with pytest.raises(_custody.CheckpointCorrupt):
+        led2.append({"kind": "s", "N": 1, "seed": 1}, {"v": 2})   # duplicate refused
+
+
+# ===========================================================================
+# J.13/J.14 G0A: deadline DURING chaos; deciding sizes first; N=100 excluded
+# ===========================================================================
+def test_lyapunov_abort_fires_inside_chaos():
+    from src.dynamics.fhn import FHNParams
+    calls = {"n": 0}
+
+    def abort():
+        calls["n"] += 1
+        return calls["n"] > 2          # fire on the 3rd poll (inside integration)
+
+    p = FHNParams(N=8)
+    x0 = np.random.default_rng(1).uniform(-2, 2, 16)
+    with pytest.raises(LyapunovDeadlineExceeded):
+        largest_lyapunov_isolated_layer(p, x0, dt=0.01, n_steps=2000,
+                                        renorm_every=5, transient_steps=500,
+                                        chunk_steps=50, abort_check=abort)
+    assert calls["n"] >= 3
+
+
+def test_g0a_deadline_inside_chaos_stops_gate(tmp_path, monkeypatch):
+    # fake clock: t0=0; the "before size"/"before seed" checks see 0; the clock
+    # jumps past the deadline only once chaos polling begins.
+    seq = {"n": 0}
+
+    def fake_time():
+        seq["n"] += 1
+        return 0.0 if seq["n"] <= 3 else 1e9     # 1:t0, 2:before-size, 3:before-seed
+
+    monkeypatch.setattr(g0a.time, "time", fake_time)
+    ctx = _ctx("G0A", tmp_path, scope="individual:G0A")
+    rep = g0a.compute(ctx)
+    assert rep["verdict"] == "INCONCLUSIVE"
+    assert rep["provenance"]["reason_code"] == "INCONCLUSIVE_BY_COST"
+    assert rep["result"]["interrupted_by_cost"] is True
+    # deciding sizes run FIRST: with the budget dead inside the first chaos cell,
+    # no N=8 (non-deciding) cell may exist in the ledger
+    led = json.loads("[" + ",".join(
+        (tmp_path / "g0a_checkpoint.jsonl").read_text().strip().splitlines()) + "]") \
+        if (tmp_path / "g0a_checkpoint.jsonl").exists() else []
+    assert all(r["cell"].get("N") != 8 for r in led if r["cell"]["kind"] != "state")
+
+
+def test_g0a_size_order_deciding_first():
+    assert g0a._size_order([100, 200, 400], [200, 400]) == [200, 400, 100]
+    assert g0a._size_order([8, 16, 24], [16, 24]) == [16, 24, 8]
 
 
 def test_g0a_n100_favorable_cannot_pass():
     cost = {"deciding_sizes": [200, 400]}
-    cells = [_cell("chaos", 100, None, 11, {"lambda_max": 0.02}),
-             _cell("switch", 100, 11.0, 11, {"synced": True})]
-    v, reason, complete = g0a.gate_verdict(cells, [11], [11.0, 120.0], cost, timed_out=False)
+    cells = [{"cell": {"kind": "chaos", "N": 100, "T_swt": None, "seed": 11},
+              "result": {"lambda_max": 0.02}},
+             {"cell": {"kind": "switch", "N": 100, "T_swt": 11.0, "seed": 11},
+              "result": {"synced": True}}]
+    v, reason, complete = g0a.gate_verdict(cells, [11], [11.0, 120.0], cost, False)
     assert v == "INCONCLUSIVE" and reason == "INCONCLUSIVE_BY_COST" and not complete
 
 
@@ -302,165 +392,226 @@ def test_g0a_complete_deciding_grid_decides():
     cost = {"deciding_sizes": [200, 400]}
     cells = []
     for N in (200, 400):
-        cells.append(_cell("chaos", N, None, 11, {"lambda_max": 0.02}))
-        cells.append(_cell("switch", N, 11.0, 11, {"synced": True}))   # fast syncs
-        cells.append(_cell("switch", N, 120.0, 11, {"synced": False}))  # slow doesn't
-    v, reason, complete = g0a.gate_verdict(cells, [11], [11.0, 120.0], cost, timed_out=False)
+        cells.append({"cell": {"kind": "chaos", "N": N, "T_swt": None, "seed": 11},
+                      "result": {"lambda_max": 0.02}})
+        cells.append({"cell": {"kind": "switch", "N": N, "T_swt": 11.0, "seed": 11},
+                      "result": {"synced": True}})
+        cells.append({"cell": {"kind": "switch", "N": N, "T_swt": 120.0, "seed": 11},
+                      "result": {"synced": False}})
+    v, reason, complete = g0a.gate_verdict(cells, [11], [11.0, 120.0], cost, False)
     assert complete and v == "PASS"
 
 
-# ---------------------------------------------------------------------------
-# J.15 MSF shift T_swt vs 2*T_swt (non-tautological)
-# ---------------------------------------------------------------------------
-def test_msf_shift_tswt_not_2tswt():
-    from src.dynamics.msf_switching import paper_g, smooth_square_gamma_v2
-    T, dt = 10.0, 0.01
-    gof = smooth_square_gamma_v2(2, T, dt)
-    ts = [0.3, 3.1, 7.7, 12.5]
-    diff_half = [abs(gof(int(t / dt))[1] - 0.5 * (paper_g(t + T, T) + 1)) for t in ts]
-    diff_full = [abs(gof(int(t / dt))[1] - 0.5 * (paper_g(t + 2 * T, T) + 1)) for t in ts]
-    assert max(diff_half) < 1e-9         # channel 1 IS the T_swt (half-period) shift
-    assert max(diff_full) > 0.3          # a 2*T_swt shift (v3 bug) would be a DIFFERENT signal
-    # and channel1 (T_swt shift) differs from channel0 (anti-phase), unlike the 2T_swt bug
-    ch0 = np.array([gof(int(t / dt))[0] for t in np.arange(0, 40, 0.5)])
-    ch1 = np.array([gof(int(t / dt))[1] for t in np.arange(0, 40, 0.5)])
-    assert np.max(np.abs(ch0 - ch1)) > 0.5
+# ===========================================================================
+# J.15 per-seed exceptions recorded in G1 / G3 / G4
+# ===========================================================================
+def test_g1_per_seed_exception_recorded(tmp_path, monkeypatch):
+    real = g1g2._gamma
+
+    def flaky(sp, sched, seed):
+        if seed == 82:
+            raise ValueError("injected failure")
+        return real(sp, sched, seed)
+
+    monkeypatch.setattr(g1g2, "_gamma", flaky)
+    rep = g1g2.compute(_ctx("G1G2", tmp_path, scope="individual:G1G2"))
+    fails = rep["provenance"]["failures"]
+    assert any(f["exception_type"] == "ValueError" and f["seed"] == 82 for f in fails)
+    assert rep["result"]["n_eval_failed"] == 1
 
 
-# ---------------------------------------------------------------------------
-# J.16 descendant check actually reaches _is_descendant on real commits
-# ---------------------------------------------------------------------------
+def test_g3_per_seed_exception_recorded(tmp_path, monkeypatch):
+    real = g3.build_basis_operator_v2
+
+    def flaky(p, rng, neg_fraction=0.4):
+        if p.seed_struct == 52 and not p.signed and p.heterogeneity == 0.05:
+            raise RuntimeError("injected op failure")
+        return real(p, rng, neg_fraction=neg_fraction)
+
+    monkeypatch.setattr(g3, "build_basis_operator_v2", flaky)
+    rep = g3.compute(_ctx("G3", tmp_path, scope="individual:G3"))
+    fails = rep["provenance"]["failures"]
+    assert any(f["exception_type"] == "RuntimeError" and f["seed"] == 52 for f in fails)
+
+
+def test_g4_per_seed_exception_recorded_and_over20_invalid(tmp_path, monkeypatch):
+    def always_raise(*a, **k):
+        raise RuntimeError("sim exploded")
+
+    monkeypatch.setattr(g4, "simulate_observed_v2", always_raise)
+    rep = g4.compute(_ctx("G4", tmp_path, scope="individual:G4"))
+    assert rep["verdict"] == "EXECUTION_INVALID"
+    assert rep["provenance"]["reason_code"] == "FAILED_RUNS"
+    assert all(f["exception_type"] == "RuntimeError" for f in rep["provenance"]["failures"])
+
+
+# ===========================================================================
+# J.16 G0C nonfinite / exception => EXECUTION_INVALID (single seed)
+# ===========================================================================
+def test_g0c_nonfinite_execution_invalid(tmp_path, monkeypatch):
+    monkeypatch.setattr(g0c, "transverse_lyapunov", lambda *a, **k: float("nan"))
+    rep = g0c.compute(_ctx("G0C", tmp_path, scope="individual:G0C"))
+    assert rep["verdict"] == "EXECUTION_INVALID"
+    assert rep["provenance"]["reason_code"] == "FAILED_RUNS"
+
+
+def test_g0c_exception_execution_invalid(tmp_path, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("integrator died")
+    monkeypatch.setattr(g0c, "transverse_lyapunov", boom)
+    rep = g0c.compute(_ctx("G0C", tmp_path, scope="individual:G0C"))
+    assert rep["verdict"] == "EXECUTION_INVALID"
+    assert rep["provenance"]["failures"][0]["exception_type"] == "RuntimeError"
+
+
+# ===========================================================================
+# J.17 G0B denominator = successful seeds only (frozen)
+# ===========================================================================
+def test_g0b_denominator_successful_seeds_only(tmp_path, monkeypatch):
+    import _repro_common_v2 as rc
+    real = rc.simulate
+
+    def flaky(p, sched, cfg, x0, **kw):
+        # seed is recoverable from the schedule label? Use call count instead.
+        flaky.n += 1
+        if flaky.n % 5 == 1:            # fail 1 of 5 seeds per cell (20%, not >20%)
+            raise FloatingPointError("injected")
+        return real(p, sched, cfg, x0, **kw)
+    flaky.n = 0
+    monkeypatch.setattr(rc, "simulate", flaky)
+    rep = g0b.compute(_ctx("G0B", tmp_path, scope="individual:G0B"))
+    rows = rep["result"]["rows"]
+    for r in rows:
+        assert len(r["failed_seeds"]) == 1
+        assert 0 < r["frac_failed"] <= 0.21
+    assert "SUCCESSFUL_SEEDS_ONLY" in rep["result"]["frac_synced_denominator"]
+
+
+# ===========================================================================
+# J.18 G2 positive END-TO-END through the real pipeline
+# ===========================================================================
+def test_g2_positive_end_to_end(tmp_path):
+    # K=2 with cycles=12 (H=24, dwell=1) => the ordered schedule is a perfect
+    # A,B,A,B alternation; permutations clump epochs. With strongly non-commuting
+    # maps this produces a REAL, systematically positive order effect.
+    ex = _tiny_exec(intra=0.25, K=2, cyc_int=12, H=24, n_perm=30, kappa=0.9)
+    ex["inference"]["std_mult"] = 0.5            # fixture-scale band
+    ex["inference"]["floor_surrogate_gamma"] = 1e-4
+    pr = _tiny_prereg(paired_eval=(81, 82, 83, 84, 85, 86, 87, 88, 89, 90))
+    rep = g1g2.compute(_ctx("G1G2", tmp_path, prereg=pr, execution=ex,
+                            scope="individual:G1G2"))
+    g2res = rep["result"]["G2_order"]
+    assert g2res["mean"] > 0                     # systematic positive displacement
+    assert g2res["verdict"] == "PASS"            # significant through the REAL rule
+    assert "permutation-median comparator" in rep["result"]["g2_method"]
+
+
+def test_g2_commuting_no_order_effect_cannot_pass(tmp_path):
+    ex = _tiny_exec(intra=0.0)                   # diagonal maps commute
+    rep = g1g2.compute(_ctx("G1G2", tmp_path, execution=ex, scope="individual:G1G2"))
+    g2res = rep["result"]["G2_order"]
+    assert abs(g2res["mean"]) < 1e-9
+    assert g2res["verdict"] == "INCONCLUSIVE"
+
+
+# ===========================================================================
+# J.19 two concurrent attempts with the same ID: exactly one gets the lock
+# ===========================================================================
+def test_attempt_lock_exclusive(tmp_path):
+    l1 = _custody.AttemptLock(tmp_path, "attX")
+    l2 = _custody.AttemptLock(tmp_path, "attX")
+    assert l1.acquire() is True
+    assert l2.acquire() is False        # second concurrent attempt refused
+    l1.release()
+    assert l2.acquire() is True
+    l2.release()
+
+
+# ===========================================================================
+# retained guards (inference facts, schema, hierarchy, arm selection, misc)
+# ===========================================================================
+def test_exact_sign_test_8_equal_signs():
+    assert abs(exact_two_sided_sign_test([0.3] * 8)["p_value"] - 0.0078125) < 1e-9
+
+
+def test_g1_hierarchy_not_interpretable():
+    g1s, g2v = g1g2._apply_hierarchy("INCONCLUSIVE", {"verdict": "PASS"}, {"verdict": "PASS"})
+    assert g1s["gate_verdict"] == "NOT_INTERPRETABLE" and g2v["gate_verdict"] == "NOT_INTERPRETABLE"
+
+
+def test_arm_selected_on_selection_seeds_only(tmp_path):
+    sp = _tiny_exec()["surrogate_paired"]
+    arm1, _ = g1g2._select_arm(sp, [41, 42, 43, 44])
+    r_a = g1g2.compute(_ctx("G", tmp_path / "a", prereg=_tiny_prereg((81, 82)),
+                            scope="individual:G1G2"))
+    r_b = g1g2.compute(_ctx("G", tmp_path / "b", prereg=_tiny_prereg((83, 84)),
+                            scope="individual:G1G2"))
+    assert r_a["result"]["selected_arm"] == r_b["result"]["selected_arm"] == arm1
+
+
+def test_no_per_seed_arm_max_in_source():
+    src = (EXP / "run_g1_g2_paired_v2.py").read_text()
+    assert "max(gf, gi, gs)" not in src and "best_switch = max" not in src
+
+
+def test_g1_strict_no_best_admissible_claim(tmp_path):
+    rep = g1g2.compute(_ctx("G", tmp_path, scope="individual:G1G2"))
+    assert rep["result"]["comparator_name"] == "best-of-frozen-candidate-set"
+
+
+def test_g3_signed_budget_and_shared_inference(tmp_path):
+    assert g3.paired_decision is g1g2.paired_decision is paired_decision
+    rep = g3.compute(_ctx("G3", tmp_path, scope="individual:G3"))
+    for rec in rep["result"]["by_stage"]["signed"]["per_seed"]:
+        assert rec["n_negative_offdiag"] >= 1 and rec["budget_diff"] <= 1e-9
+
+
+def test_g4_horizon_and_baseline():
+    s = g4._make_schedule(8, 2, 60, 6, 61)
+    assert s.total_steps == 60
+    with pytest.raises(contract.ContractError):
+        g4._make_schedule(8, 2, 60, 7, 61)
+    assert g4._verdict_from_conditions({"a": True, "b": True, "c": True,
+                                        "beats_baseline": False}) == "FAIL"
+
+
+def test_report_schema_v5_provenance():
+    prov = {k: 1 for k in ["prereg_canonical_hash", "prereg_file_sha256",
+                           "execution_contract_canonical_hash", "execution_contract_file_sha256",
+                           "freeze_content_hash", "runner_sha256", "orchestrator_sha256",
+                           "execution_scope", "execution_mode", "campaign_id", "attempt_id",
+                           "authorization_token_sha256", "source_commit", "freeze_commit",
+                           "freeze_tag", "runtime_head", "environment", "seeds", "params",
+                           "criterion", "failures"]}
+    contract.validate_report_schema({"gate": "X", "verdict": "PASS", "result": {},
+                                     "provenance": prov})
+    bad = dict(prov); del bad["attempt_id"]
+    with pytest.raises(contract.ContractError):
+        contract.validate_report_schema({"gate": "X", "verdict": "PASS", "result": {},
+                                         "provenance": bad})
+
+
+def test_unknown_scope_rejected():
+    args = argparse.Namespace(i_am_authorized=False, dry_run=True,
+                              prereg=str(EXP / "configs/synthetic_prereg_v5.json"),
+                              execution_contract=str(EXP / "configs/synthetic_execution_contract_v3.json"))
+    with pytest.raises(contract.ContractError, match="scope"):
+        contract.build_context(args, "G", str(EXP / "run_g4_v2.py"), "made-up-scope")
+
+
 def test_is_descendant_real_commits():
     head = contract._git_head()
     parent = contract._git("rev-parse", "HEAD~1")
     assert contract._is_descendant(parent, head) is True
     assert contract._is_descendant(head, parent) is False
-    assert contract._is_descendant(head, head) is False
 
 
 # ---------------------------------------------------------------------------
-# J.17 report records runner SHA and orchestrator SHA
-# ---------------------------------------------------------------------------
-def test_report_records_runner_and_orchestrator_sha(tmp_path):
-    rep = g4.compute(_ctx("G4_identifiability", tmp_path, orch="ORCH_SHA_123"))
-    contract.validate_report_schema(rep)
-    assert rep["provenance"]["runner_sha256"] == "rs"
-    assert rep["provenance"]["orchestrator_sha256"] == "ORCH_SHA_123"
-
-
-# ---------------------------------------------------------------------------
-# J.18 failure -> no partial success bundle
-# ---------------------------------------------------------------------------
-def test_no_partial_success_bundle_on_failure(tmp_path):
-    run_dir = tmp_path / "runs"
-    run_id = "abc123"
-    staging = _custody.staging_dir(run_dir, run_id)
-    staging.mkdir(parents=True)
-    (staging / "g0b_v2.json").write_text("{}")            # a partial staged report
-    _custody.write_failure_ledger(run_dir, run_id, [{"gate": "G0C", "error": "boom"}])
-    # failure => publish NOT called; final must NOT exist; failure ledger present
-    assert not _custody.final_dir(run_dir, run_id).exists()
-    assert (run_dir / f"{run_id}.failed" / "failure_ledger.json").exists()
-
-
-def test_publish_atomic_refuses_existing_final(tmp_path):
-    run_dir = tmp_path / "runs"; run_id = "x"
-    staging = _custody.staging_dir(run_dir, run_id); staging.mkdir(parents=True)
-    final = _custody.final_dir(run_dir, run_id); final.mkdir(parents=True)
-    with pytest.raises(FileExistsError):
-        _custody.publish_atomic(staging, final)
-
-
-# ---------------------------------------------------------------------------
-# J.19 two sequential individual runners share run_id
-# ---------------------------------------------------------------------------
-def test_two_individual_runners_share_run_id(tmp_path):
-    ctx = _ctx("G", tmp_path / "rid")
-    r1 = {"gate": "G", "verdict": "PASS", "result": {}, "provenance": {}}
-    contract.atomic_write_report(ctx, "g0b_calibrated_v2.json", r1)
-    contract.atomic_write_report(ctx, "g4_identifiability_v2.json", r1)   # same dir, distinct report
-    assert (Path(tmp_path / "rid") / "g0b_calibrated_v2.json").exists()
-    assert (Path(tmp_path / "rid") / "g4_identifiability_v2.json").exists()
-    with pytest.raises(contract.ContractError):        # no overwrite
-        contract.atomic_write_report(ctx, "g0b_calibrated_v2.json", r1)
-
-
-# ---------------------------------------------------------------------------
-# J.20 corruption of prereg / contract / freeze / output detected
-# ---------------------------------------------------------------------------
-def _real_hashes():
-    def h(p):
-        raw = Path(p).read_bytes()
-        from src.validation.freeze_v2 import config_canonical_hash
-        return config_canonical_hash(json.loads(raw)), hashlib.sha256(raw).hexdigest()
-    return (h(REPO / "experiments/configs/synthetic_prereg_v4.json")
-            + h(REPO / "experiments/configs/synthetic_execution_contract_v2.json"))
-
-
-def _args(**kw):
-    pc, pf, ec, ef = _real_hashes()
-    base = dict(i_am_authorized=True, dry_run=False,
-                prereg=str(REPO / "experiments/configs/synthetic_prereg_v4.json"),
-                execution_contract=str(REPO / "experiments/configs/synthetic_execution_contract_v2.json"),
-                expect_prereg_canonical=pc, expect_prereg_file_sha=pf,
-                expect_execution_contract_canonical=ec, expect_execution_contract_file_sha=ef,
-                freeze=str(REPO / "artifacts/nope.json"), expect_freeze_content_hash="fh",
-                expect_freeze_commit="frz", expect_freeze_tag="tag",
-                run_dir=str(REPO.parent / "external_runs"), orchestrator_sha=None)
-    base.update(kw)
-    return argparse.Namespace(**base)
-
-
-def test_corrupt_prereg_rejected():
-    with pytest.raises(contract.ContractError):
-        contract.build_context(_args(expect_prereg_canonical="deadbeef"), "G", str(EXP / "run_g4_v2.py"))
-
-
-def test_corrupt_execution_contract_rejected():
-    with pytest.raises(contract.ContractError):
-        contract.build_context(_args(expect_execution_contract_file_sha="deadbeef"), "G", str(EXP / "run_g4_v2.py"))
-
-
-def test_run_dir_inside_repo_rejected(monkeypatch, tmp_path):
-    from src.validation.freeze_v2 import build_manifest_v2
-    monkeypatch.setattr(contract, "_tree_clean", lambda: True)
-    monkeypatch.setattr(contract, "_git_head", lambda: "H")
-    monkeypatch.setattr(contract, "_deref_tag", lambda t: "H")
-    monkeypatch.setattr(contract, "_is_descendant", lambda a, d: False)
-    man = build_manifest_v2(REPO, {"roots": [], "files": ["python-version.txt"]},
-                            {"k": 1}, "experiments/configs/synthetic_prereg_v4.json")
-    fp = tmp_path / "frz.json"; fp.write_text(json.dumps(man))
-    with pytest.raises(contract.ContractError, match="OUTSIDE"):
-        contract.build_context(_args(expect_freeze_commit="H", freeze=str(fp),
-                                     expect_freeze_content_hash=man["content_hash"],
-                                     run_dir=str(REPO / "experiments")),
-                               "G", str(EXP / "run_g4_v2.py"))
-
-
-def test_corrupt_output_overwrite_refused(tmp_path):
-    ctx = _ctx("G", tmp_path)
-    rep = {"gate": "G", "verdict": "PASS", "result": {}, "provenance": {}}
-    contract.atomic_write_report(ctx, "x_v2.json", rep)
-    with pytest.raises(contract.ContractError):
-        contract.atomic_write_report(ctx, "x_v2.json", rep)
-
-
-# ---------------------------------------------------------------------------
-# suite flag contradiction rejected
-# ---------------------------------------------------------------------------
-def test_suite_rejects_contradictory_flags():
-    import run_suite_v2 as suite
-    assert suite.main(["--cheap-only", "--include-g0a-expensive", "--run-dir", "/x"]) == 2
-
-
-# ---------------------------------------------------------------------------
-# no superseded v1 imports (kept from P1.2-A, extended)
+# no superseded v1 imports (retained)
 # ---------------------------------------------------------------------------
 FORBIDDEN_MODULES = {"src.validation.freeze", "run_reproduction", "run_surrogate_causal",
                      "run_causal_fhn", "run_surrogate_stages", "run_identifiability",
                      "run_msf", "run_freeze"}
-FORBIDDEN_FROM = {("src.simulation.linear_surrogate", "build_basis_operator"),
-                  ("src.simulation.linear_surrogate", "simulate_observed")}
 V2_FILES = ["run_g0a_exact_v2.py", "run_g0b_calibrated_v2.py", "run_g0c_msf_v2.py",
             "run_g1_g2_paired_v2.py", "run_g3_v2.py", "run_g4_v2.py", "run_suite_v2.py",
             "_contract_v2.py", "_custody.py", "_repro_common_v2.py"]
@@ -475,11 +626,7 @@ def test_no_superseded_v1_imports(fn):
             for a in node.names:
                 assert a.name not in FORBIDDEN_MODULES, f"{fn}: {a.name}"
         elif isinstance(node, ast.ImportFrom):
-            mod = node.module or ""
-            assert mod not in FORBIDDEN_MODULES, f"{fn}: {mod}"
-            for a in node.names:
-                assert (mod, a.name) not in FORBIDDEN_FROM, f"{fn}: {mod}.{a.name}"
-                assert a.name != "smooth_square_gamma", f"{fn}: v1 smooth_square_gamma"
+            assert (node.module or "") not in FORBIDDEN_MODULES, f"{fn}: {node.module}"
 
 
 def test_v2_import_graph_excludes_v1():

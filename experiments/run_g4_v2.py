@@ -9,7 +9,7 @@ import sys
 
 import numpy as np
 
-from _contract_v2 import ContractError, provenance, run_cli
+from _contract_v2 import ContractError, failure_record, provenance, run_cli
 from src.metrics.identifiability import (
     precision_recall,
     rolling_basis_ar1_estimator,
@@ -25,6 +25,7 @@ from src.simulation.surrogate_v2 import (
 
 GATE = "G4_identifiability"
 REPORT = "g4_identifiability_v2.json"
+SCOPE = "individual:G4"
 
 
 def _cfg(ctx):
@@ -65,28 +66,33 @@ def compute(ctx):
 
     for stride in g["async_variants"]:
         key = f"async_{stride[0]}_{stride[1]}"
-        rows, failed = [], []
+        rows, failed, fail_records = [], [], []
         for seed in seeds:
-            p = SurrogateParams(N=N, kappa=g["kappa"], rho_target=g["rho_target"],
-                                intra_coupling=g["intra_coupling"], obs_noise=g["obs_noise"],
-                                factor_scale=g["factor_scale"], seed_struct=seed)
-            sched = _make_schedule(N, N_IL, H, dwell, seed)   # asserts total_steps == H
-            data = simulate_observed_v2(p, sched, np.random.default_rng(seed * 7 + 2),
-                                        async_stride=tuple(stride))
-            if not (np.all(np.isfinite(data.p1)) and np.all(np.isfinite(data.p2))):
+            try:
+                p = SurrogateParams(N=N, kappa=g["kappa"], rho_target=g["rho_target"],
+                                    intra_coupling=g["intra_coupling"], obs_noise=g["obs_noise"],
+                                    factor_scale=g["factor_scale"], seed_struct=seed)
+                sched = _make_schedule(N, N_IL, H, dwell, seed)   # asserts total_steps == H
+                data = simulate_observed_v2(p, sched, np.random.default_rng(seed * 7 + 2),
+                                            async_stride=tuple(stride))
+                if not (np.all(np.isfinite(data.p1)) and np.all(np.isfinite(data.p2))):
+                    raise FloatingPointError("nonfinite observation")
+                eb = rolling_basis_ar1_estimator(data.p1, data.p2, N_IL, W)
+                el = rolling_levelcorr_estimator(data.p1, data.p2, N_IL, W)
+                pb, rb = precision_recall(eb, data.active, W)
+                pl, rl = precision_recall(el, data.active, W)
+                cc = contraction_corr_same_realization(data, W)
+                if not all(np.isfinite(x) for x in (pb, rb, pl, rl, cc)):
+                    raise FloatingPointError("nonfinite metric")
+            except ContractError:
+                raise
+            except Exception as e:
                 failed.append(seed)
-                continue
-            eb = rolling_basis_ar1_estimator(data.p1, data.p2, N_IL, W)
-            el = rolling_levelcorr_estimator(data.p1, data.p2, N_IL, W)
-            pb, rb = precision_recall(eb, data.active, W)
-            pl, rl = precision_recall(el, data.active, W)
-            cc = contraction_corr_same_realization(data, W)
-            if not all(np.isfinite(x) for x in (pb, rb, pl, rl, cc)):
-                failed.append(seed)
+                fail_records.append(failure_record(e, seed, {"variant": key}))
                 continue
             rows.append({"seed": seed, "basis_precision": pb, "basis_recall": rb,
                          "levelcorr_precision": pl, "levelcorr_recall": rl, "contraction_corr": cc})
-        failed_by_variant[key] = failed
+        failed_by_variant[key] = {"seeds": failed, "records": fail_records}
         if rows:
             out[key] = {"basis_precision": float(np.mean([r["basis_precision"] for r in rows])),
                         "basis_recall": float(np.mean([r["basis_recall"] for r in rows])),
@@ -99,11 +105,12 @@ def compute(ctx):
             out[key] = None
 
     # failed-run handling (>20% in the synchronous variant)
-    sync_failed = failed_by_variant.get("async_1_1", [])
+    sync_failed = failed_by_variant.get("async_1_1", {}).get("seeds", [])
+    sync_fail_records = failed_by_variant.get("async_1_1", {}).get("records", [])
     if len(sync_failed) / len(seeds) > 0.2:
         return {"gate": GATE, "verdict": "EXECUTION_INVALID",
                 "provenance": provenance(ctx, seeds, g, ">20% failed/nonfinite seeds",
-                                         reason_code="FAILED_RUNS", failures=sync_failed),
+                                         reason_code="FAILED_RUNS", failures=sync_fail_records),
                 "result": {"by_async_variant": out, "failed_by_variant": failed_by_variant}}
 
     sync = out["async_1_1"]
@@ -121,11 +128,11 @@ def compute(ctx):
             "provenance": provenance(ctx, seeds, g,
                                      "PASS iff precision>0.6 AND recall>0.6 AND contraction_corr>0.5 "
                                      "AND basis beats baseline (paired precision margin, shared rule)",
-                                     failures=sync_failed),
+                                     failures=sync_fail_records),
             "result": {"by_async_variant": out, "conditions": conds,
                        "beats_baseline_decision": beats,
                        "failed_by_variant": failed_by_variant}}
 
 
 if __name__ == "__main__":
-    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT))
+    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT, SCOPE))

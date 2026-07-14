@@ -1,12 +1,16 @@
-"""G0A exact-paper reproduction runner (v2, P1.2-B). EXPENSIVE.
+"""G0A exact-paper reproduction runner (v2, P1.2-C). EXPENSIVE.
 
-Enforces the frozen cost rule (G): a durable append-only checkpoint OUTSIDE the
-repo (crash-recoverable, duplicate-rejecting), a chunked wall-clock deadline that
-can stop a long simulation mid-cell, an isolated-layer chaos prerequisite, and the
-quantifier that PASS requires EVERY deciding size (200, 400) to satisfy the fast/
-slow criterion for ALL its cells. N=100 is non-deciding: a single favorable N=100
-cell can never decide the gate. Any incomplete deciding cell -> INCONCLUSIVE with
-reason_code INCONCLUSIVE_BY_COST (a partial grid is never PASS/FAIL). Import-safe."""
+Cost/deadline (contract G): the wall-time budget covers the chaos prerequisite,
+the switching simulations and checkpoint serialization. The deadline is checked
+before each size, before each seed/cell, and DURING both chaos (chunked Benettin)
+and switching (chunked RK4). Deciding sizes {200, 400} run FIRST; N=100 cannot
+consume budget before them. A clean deadline expiry is recorded as
+INTERRUPTED_BY_COST in the checkpoint and, per the frozen policy, converts to
+verdict INCONCLUSIVE(reason INCONCLUSIVE_BY_COST). An external signal/crash
+propagates (KeyboardInterrupt etc.) and is NOT converted into a result.
+
+Custody: durable hash-chained checkpoint ledger OUTSIDE the repo (crash-recoverable,
+duplicate-rejecting, truncation-detecting). Import-safe."""
 from __future__ import annotations
 
 import sys
@@ -17,13 +21,14 @@ import numpy as np
 from _contract_v2 import provenance, run_cli
 from _custody import CheckpointLedger
 from src.dynamics.fhn import FHNParams
-from src.metrics.lyapunov import largest_lyapunov_isolated_layer
+from src.metrics.lyapunov import LyapunovDeadlineExceeded, largest_lyapunov_isolated_layer
 from src.metrics.sync import synchronized, time_averaged_error
 from src.networks.switching import random_switching
 from src.simulation.double_layer import DeadlineExceeded, SimConfig, initial_state, simulate
 
 GATE = "G0A_exact_reproduction"
 REPORT = "g0a_exact_v2.json"
+SCOPE = "individual:G0A"
 FAST_MAX, SLOW_MIN = 25.0, 120.0
 
 
@@ -33,25 +38,30 @@ def _cfg(ctx):
             ctx.prereg["gates"][GATE]["cost_rule"], ctx.prereg["fhn"]["density_ratio"])
 
 
+def _size_order(sizes, deciding):
+    """Deciding sizes first (in ascending order), then the rest."""
+    return sorted([s for s in sizes if s in deciding]) + \
+           sorted([s for s in sizes if s not in deciding])
+
+
 def plan(ctx):
     g, seeds, dt, tol, cost, density = _cfg(ctx)
     n = len(g["sizes"]) * len(g["T_swt_grid"]) * len(seeds)
     return {"gate": GATE, "params": g, "seeds": seeds, "switch_cells": n,
-            "cost_rule": cost,
+            "cost_rule": cost, "size_order": _size_order(g["sizes"], cost["deciding_sizes"]),
             "projected_cost": (f"EXPENSIVE: {n} FHN sims of {int(g['total_time']/dt)} steps "
-                               f"(largest 4N={4*max(g['sizes'])}) + chaos cells; likely "
-                               f"hours-to-days; deadline {cost['max_wall_time_seconds']}s. "
-                               f"Deciding sizes {cost['deciding_sizes']}; N=100 non-deciding.")}
+                               f"+ chaos cells; deadline {cost['max_wall_time_seconds']}s "
+                               f"covers chaos+switching+serialization; deciding sizes run first.")}
 
 
-def gate_verdict(cells, seeds, T_grid, cost, timed_out):
+def gate_verdict(cells, seeds, T_grid, cost, interrupted_by_cost):
     """Pure verdict from completed cell records (testable independently)."""
     deciding = cost["deciding_sizes"]
     switch = {(c["cell"]["N"], c["cell"]["T_swt"], c["cell"]["seed"]): c["result"]
               for c in cells if c["cell"]["kind"] == "switch"}
     chaos = {(c["cell"]["N"], c["cell"]["seed"]): c["result"]
              for c in cells if c["cell"]["kind"] == "chaos"}
-    complete = not timed_out
+    complete = not interrupted_by_cost
     for N in deciding:
         for s in seeds:
             if (N, s) not in chaos:
@@ -77,31 +87,41 @@ def gate_verdict(cells, seeds, T_grid, cost, timed_out):
 def compute(ctx):
     g, seeds, dt, tol, cost, density = _cfg(ctx)
     prov_key = {"freeze": ctx.freeze_content_hash, "prereg": ctx.prereg_canonical_hash,
-                "exec": ctx.execution_canonical_hash, "runner": ctx.runner_sha256}
+                "exec": ctx.execution_canonical_hash, "runner": ctx.runner_sha256,
+                "scope": ctx.execution_scope, "attempt": ctx.attempt_id}
     ledger = CheckpointLedger(ctx.out_dir / "g0a_checkpoint.jsonl", prov_key,
                               ["kind", "N", "T_swt", "seed"])
     t0 = time.time()
     deadline = cost["max_wall_time_seconds"]
 
-    def abort():
+    def over_budget():
         return time.time() - t0 > deadline
 
-    timed_out = False
+    interrupted_by_cost = False
+    failures = []
+    sizes = _size_order(g["sizes"], cost["deciding_sizes"])
     try:
-        for N in g["sizes"]:
+        for N in sizes:
+            if over_budget():                       # before each size
+                raise DeadlineExceeded(f"budget exhausted before size N={N}")
             N_IL = int(round(density * N))
             p = FHNParams(N=N, sigma_inter=g["sigma_inter"])
             cfg = SimConfig(dt=dt, total_time=g["total_time"], record_every=g["record_every"])
             for seed in seeds:
+                if over_budget():                   # before each chaos seed
+                    raise DeadlineExceeded(f"budget exhausted before chaos N={N} seed={seed}")
                 cell = {"kind": "chaos", "N": N, "T_swt": None, "seed": seed}
                 if not ledger.has(cell):
                     x0l = np.random.default_rng(seed).uniform(-2, 2, size=2 * N)
                     lam = largest_lyapunov_isolated_layer(
                         p, x0l, dt=dt, n_steps=g["chaos_n_steps"],
-                        renorm_every=g["chaos_renorm"], transient_steps=g["chaos_transient"])
+                        renorm_every=g["chaos_renorm"], transient_steps=g["chaos_transient"],
+                        chunk_steps=g["chunk_steps"], abort_check=over_budget)
                     ledger.append(cell, {"lambda_max": float(lam)})
             for seed in seeds:
                 for T in g["T_swt_grid"]:
+                    if over_budget():               # before each switching cell
+                        raise DeadlineExceeded(f"budget exhausted before N={N} T={T} seed={seed}")
                     cell = {"kind": "switch", "N": N, "T_swt": T, "seed": seed}
                     if ledger.has(cell):
                         continue
@@ -110,28 +130,45 @@ def compute(ctx):
                     x0 = initial_state(N, np.random.default_rng(1000 + seed))
                     sched = random_switching(N, N_IL, dwell, n_epochs,
                                              np.random.default_rng(2000 + seed), f"T{T}")
-                    res = simulate(p, sched, cfg, x0, chunk_steps=g["chunk_steps"],
-                                   abort_check=abort)
+                    try:
+                        res = simulate(p, sched, cfg, x0, chunk_steps=g["chunk_steps"],
+                                       abort_check=over_budget)
+                    except (FloatingPointError, ValueError) as e:
+                        from _contract_v2 import failure_record
+                        failures.append(failure_record(e, seed, {"N": N, "T_swt": T}))
+                        ledger.append(cell, {"failed": True, "error": type(e).__name__})
+                        continue
                     ledger.append(cell, {
-                        "synced": bool(synchronized(res.e12, tol["sync_threshold_E12"], tol["sync_tail_frac"])),
+                        "synced": bool(synchronized(res.e12, tol["sync_threshold_E12"],
+                                                    tol["sync_tail_frac"])),
                         "tail_E12": float(time_averaged_error(res.e12, 1 - tol["sync_tail_frac"]))})
-    except DeadlineExceeded:
-        timed_out = True
+    except (DeadlineExceeded, LyapunovDeadlineExceeded):
+        # CLEAN cost exhaustion: checkpoint state + INTERRUPTED_BY_COST. This is the
+        # ONLY path that converts a deadline into a scientific INCONCLUSIVE_BY_COST.
+        interrupted_by_cost = True
+        state_cell = {"kind": "state", "N": None, "T_swt": None, "seed": None}
+        if not ledger.has(state_cell):
+            ledger.append(state_cell, {"state": "INTERRUPTED_BY_COST"})
+    # KeyboardInterrupt / any other exception propagates: an external interruption
+    # or crash is NOT cost exhaustion and must not become a scientific result.
 
-    verdict, reason, complete = gate_verdict(ledger.completed(), seeds, g["T_swt_grid"],
-                                             cost, timed_out)
+    cells = [c for c in ledger.completed() if c["cell"]["kind"] in ("chaos", "switch")
+             and not c["result"].get("failed")]
+    verdict, reason, complete = gate_verdict(cells, seeds, g["T_swt_grid"], cost,
+                                             interrupted_by_cost)
     return {"gate": GATE, "verdict": verdict,
             "provenance": provenance(ctx, seeds, g,
                                      "PASS iff EVERY deciding size (200,400) has chaos>0 and ALL "
                                      "fast T_swt<=25 frac>=0.5 and ALL slow T_swt>=120 frac<0.5; "
-                                     "N=100 non-deciding; partial grid -> INCONCLUSIVE_BY_COST",
-                                     reason_code=reason),
-            "result": {"complete": complete, "timed_out": timed_out,
+                                     "N=100 non-deciding; deciding sizes run first; clean deadline "
+                                     "-> INCONCLUSIVE_BY_COST; external interruption -> no result",
+                                     reason_code=reason, failures=failures),
+            "result": {"complete": complete, "interrupted_by_cost": interrupted_by_cost,
                        "n_completed_cells": ledger.n_completed(),
                        "checkpoint": str(ctx.out_dir / "g0a_checkpoint.jsonl"),
-                       "deciding_sizes": cost["deciding_sizes"],
+                       "size_order": sizes, "deciding_sizes": cost["deciding_sizes"],
                        "label": "EXACT_PAPER_REPRODUCTION (sigma_12=0.1)"}}
 
 
 if __name__ == "__main__":
-    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT))
+    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT, SCOPE))

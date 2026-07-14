@@ -56,22 +56,37 @@ def _rk4_state_tangent(x, v, p, M, b_layer, dt, coupling_diag=None):
     return x_new, v_new
 
 
+class LyapunovDeadlineExceeded(Exception):
+    """Raised when abort_check() fires during a chunked Lyapunov integration."""
+
+
 def largest_lyapunov_isolated_layer(p: FHNParams, x0: np.ndarray, dt: float,
                                     n_steps: int, renorm_every: int = 10,
-                                    transient_steps: int = 2000) -> float:
+                                    transient_steps: int = 2000,
+                                    chunk_steps: int | None = None,
+                                    abort_check=None) -> float:
     """Benettin largest Lyapunov exponent of one isolated FHN ring layer.
 
     Integrates the trajectory and a tangent vector, renormalizing periodically and
-    accumulating log growth. Returns lambda_max (per unit time).
+    accumulating log growth. Returns lambda_max (per unit time). If `chunk_steps`
+    and `abort_check` are given, abort_check() is polled every chunk_steps steps
+    (transient AND main phase); if it returns True, LyapunovDeadlineExceeded is
+    raised so a wall-clock deadline can stop the chaos prerequisite mid-cell.
     """
     M = single_layer_operator(p)
     a = p.a_vector()
     b_layer = np.zeros(2 * p.N)
     b_layer[1::2] = a
 
+    def _poll(step):
+        if chunk_steps and abort_check is not None and step > 0 and step % chunk_steps == 0:
+            if abort_check():
+                raise LyapunovDeadlineExceeded(f"aborted at step {step}")
+
     x = x0.astype(float).copy()
     # burn-in transient onto the attractor
-    for _ in range(transient_steps):
+    for step in range(transient_steps):
+        _poll(step)
         x = _rk4_layer(x, p, M, b_layer, dt)
 
     rng = np.random.default_rng(0)
@@ -81,6 +96,7 @@ def largest_lyapunov_isolated_layer(p: FHNParams, x0: np.ndarray, dt: float,
     log_sum = 0.0
     n_renorm = 0
     for step in range(n_steps):
+        _poll(step)
         x, v = _rk4_state_tangent(x, v, p, M, b_layer, dt)
         if (step + 1) % renorm_every == 0:
             nrm = np.linalg.norm(v)

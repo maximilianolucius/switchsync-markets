@@ -17,7 +17,7 @@ import sys
 
 import numpy as np
 
-from _contract_v2 import provenance, run_cli
+from _contract_v2 import failure_record, provenance, run_cli
 from src.metrics.inference import paired_decision
 from src.metrics.propagator import full_contraction_rate, ordered_product
 from src.networks.paired_switching import (
@@ -33,6 +33,7 @@ from src.simulation.surrogate_v2 import average_operator_map_v2, difference_step
 
 GATE = "G1_G2_paired"
 REPORT = "g1_g2_paired_v2.json"
+SCOPE = "individual:G1G2"
 ARM_ORDER = ["fast", "intermediate", "slow"]
 
 
@@ -139,26 +140,42 @@ def compute(ctx):
     # ---- EVALUATION phase (disjoint evaluation seeds) ----
     d_weak, d_strict, d_order = [], [], []
     per = {"arm_gamma": [], "static_sparse": [], "average_graph": [], "best_static_frozen": []}
+    eval_failures = []
     for seed in ev:
         base = _base(sp, seed)
-        arm_sched = _arm_schedule(sp, base, arm)
-        inter = _arm_schedule(sp, base, "intermediate")
-        assert_paired_invariants({"arm": arm_sched, "inter": inter}, N, H, N_IL)
-        g_arm = _gamma(sp, arm_sched, seed)
-        g_stat = _gamma(sp, _static(sp, base[0]), seed)
-        occ = average_operator_gamma(base, N)
-        g_avg = full_contraction_rate(ordered_product(
-            average_operator_map_v2(_p(sp, seed), occ, np.random.default_rng(seed), H)), H)
-        g_best = _gamma(sp, _static(sp, best_static), seed)
+        try:
+            arm_sched = _arm_schedule(sp, base, arm)
+            inter = _arm_schedule(sp, base, "intermediate")
+            assert_paired_invariants({"arm": arm_sched, "inter": inter}, N, H, N_IL)
+            g_arm = _gamma(sp, arm_sched, seed)
+            g_stat = _gamma(sp, _static(sp, base[0]), seed)
+            occ = average_operator_gamma(base, N)
+            g_avg = full_contraction_rate(ordered_product(
+                average_operator_map_v2(_p(sp, seed), occ, np.random.default_rng(seed), H)), H)
+            g_best = _gamma(sp, _static(sp, best_static), seed)
+            g_ord = _gamma(sp, inter, seed)
+            perms = order_permutations(inter, sp["g2_n_perm"],
+                                       np.random.default_rng(sp["g2_perm_seed"] + seed))
+            g_perm = [_gamma(sp, ps, seed) for ps in perms]
+            vals = [g_arm, g_stat, g_avg, g_best, g_ord] + list(g_perm)
+            if not all(np.isfinite(v) for v in vals):
+                raise FloatingPointError("nonfinite gamma in evaluation seed")
+        except Exception as e:
+            eval_failures.append(failure_record(e, seed, {"phase": "evaluation"}))
+            continue
         per["arm_gamma"].append(g_arm); per["static_sparse"].append(g_stat)
         per["average_graph"].append(g_avg); per["best_static_frozen"].append(g_best)
         d_weak.append(g_arm - g_stat)
         d_strict.append(g_arm - max(g_avg, g_best))
-        # G2 permutation null on the intermediate arm
-        g_ord = _gamma(sp, inter, seed)
-        perms = order_permutations(inter, sp["g2_n_perm"], np.random.default_rng(sp["g2_perm_seed"] + seed))
-        g_perm = [_gamma(sp, ps, seed) for ps in perms]
+        # G2 permutation-median comparator (Option 1; NOT a permutation test)
         d_order.append(g_ord - float(np.median(g_perm)))
+
+    if len(eval_failures) / len(ev) > 0.2:
+        return {"gate": GATE, "verdict": "EXECUTION_INVALID",
+                "provenance": provenance(ctx, {"selection": sel, "evaluation": ev}, sp,
+                                         ">20% evaluation seeds failed (frozen policy)",
+                                         reason_code="FAILED_RUNS", failures=eval_failures),
+                "result": {"n_eval_failed": len(eval_failures)}}
 
     g1w = _decision(d_weak, inf)
     g1s_raw = _decision(d_strict, inf)
@@ -171,8 +188,9 @@ def compute(ctx):
             "provenance": provenance(ctx, {"selection": sel, "evaluation": ev}, sp,
                                      "G1_weak by shared sign-test rule; G1_strict/G2 "
                                      "NOT_INTERPRETABLE unless G1_weak PASS; comparator = "
-                                     "best-of-frozen-candidate-set; arm frozen on selection seeds",
-                                     reason_code=reason),
+                                     "best-of-frozen-candidate-set; arm frozen on selection seeds; "
+                                     "G2 = permutation-median comparator + cross-seed sign test",
+                                     reason_code=reason, failures=eval_failures),
             "result": {
                 "selected_arm": arm, "arm_selection_scores": arm_scores,
                 "arm_tie_break": "max mean selection gamma; canonical order fast<intermediate<slow",
@@ -181,8 +199,15 @@ def compute(ctx):
                 "n_candidates": n_candidates,
                 "comparator_name": "best-of-frozen-candidate-set",
                 "per_seed_gamma_eval": per,
-                "G1_weak": g1w, "G1_strict": g1s, "G2_order": g2}}
+                "G1_weak": g1w, "G1_strict": g1s, "G2_order": g2,
+                "g2_method": ("permutation-median comparator + cross-seed sign test: "
+                              "delta_s = gamma_ordered - median(gamma over frozen order "
+                              "permutations), aggregated by the shared exact sign test. "
+                              "This is NOT a per-seed permutation test; it detects a "
+                              "systematic displacement from the permutation median and "
+                              "sign-varying order effects can cancel across seeds."),
+                "n_eval_failed": len(eval_failures)}}
 
 
 if __name__ == "__main__":
-    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT))
+    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT, SCOPE))

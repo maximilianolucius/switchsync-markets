@@ -13,6 +13,7 @@ from _repro_common_v2 import frac_synced_grid
 
 GATE = "G0B_calibrated_demonstration"
 REPORT = "g0b_calibrated_v2.json"
+SCOPE = "individual:G0B"
 
 
 def _cfg(ctx):
@@ -52,8 +53,11 @@ def compute(ctx):
                                      "T_swt>=160 do not (ALL semantics); calibrated demo, not reproduction",
                                      failures=failures),
             "result": {"rows": rows, "fast_all_sync": fast_all, "slow_all_not_sync": slow_all,
+                       "frac_synced_denominator": ("SUCCESSFUL_SEEDS_ONLY (frozen; failed "
+                                                   "seeds are excluded from the denominator "
+                                                   "and disclosed per cell)"),
                        "label": "CALIBRATED_QUALITATIVE_DEMONSTRATION (NOT paper reproduction)"}}
 
 
 if __name__ == "__main__":
-    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT))
+    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT, SCOPE))

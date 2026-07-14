@@ -16,6 +16,7 @@ from src.metrics.lyapunov import transverse_lyapunov
 
 GATE = "G0C_msf_minimal"
 REPORT = "g0c_msf_v2.json"
+SCOPE = "individual:G0C"
 
 
 def _cfg(ctx):
@@ -58,9 +59,27 @@ def compute(ctx):
         for sigma in g["sigma_grid"]:
             p = FHNParams(N=N, sigma_inter=sigma)
             x0 = np.random.default_rng(seed).uniform(-2, 2, size=2 * N)
-            psi = transverse_lyapunov(p, g["lam_perp"], gof, x0, dt=dt,
-                                      n_steps=g["n_steps"], renorm_every=g["renorm_every"],
-                                      transient_steps=g["transient_steps"])
+            try:
+                psi = transverse_lyapunov(p, g["lam_perp"], gof, x0, dt=dt,
+                                          n_steps=g["n_steps"], renorm_every=g["renorm_every"],
+                                          transient_steps=g["transient_steps"])
+            except Exception as e:
+                from _contract_v2 import failure_record
+                return {"gate": GATE, "verdict": "EXECUTION_INVALID",
+                        "provenance": provenance(ctx, seeds, g,
+                                                 "single-seed gate: any technical failure/nonfinite "
+                                                 "=> EXECUTION_INVALID (frozen policy)",
+                                                 reason_code="FAILED_RUNS",
+                                                 failures=[failure_record(e, seed,
+                                                           {"sigma": sigma, "T_swt": T_swt})]),
+                        "result": {"failed_at": {"sigma": sigma, "T_swt": T_swt}}}
+            if not np.isfinite(psi):
+                return {"gate": GATE, "verdict": "EXECUTION_INVALID",
+                        "provenance": provenance(ctx, seeds, g,
+                                                 "single-seed gate: nonfinite Psi => EXECUTION_INVALID",
+                                                 reason_code="FAILED_RUNS"),
+                        "result": {"failed_at": {"sigma": sigma, "T_swt": T_swt},
+                                   "psi": "nonfinite"}}
             row[str(sigma)] = float(psi)
         grid[str(T_swt)] = row
 
@@ -88,4 +107,4 @@ def compute(ctx):
 
 
 if __name__ == "__main__":
-    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT))
+    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT, SCOPE))

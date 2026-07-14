@@ -10,7 +10,7 @@ import sys
 
 import numpy as np
 
-from _contract_v2 import provenance, run_cli
+from _contract_v2 import failure_record, provenance, run_cli
 from src.metrics.inference import paired_decision
 from src.metrics.propagator import full_contraction_rate, ordered_product
 from src.networks.paired_switching import build_base_snapshots, paired_rate_schedule
@@ -20,6 +20,7 @@ from src.simulation.surrogate_v2 import build_basis_operator_v2
 
 GATE = "G3_robustness"
 REPORT = "g3_robustness_v2.json"
+SCOPE = "individual:G3"
 
 
 def _cfg(ctx):
@@ -62,32 +63,38 @@ def compute(ctx):
     any_failed_gate = False
 
     for stage in stages:
-        advs, per_seed, failed = [], [], []
+        advs, per_seed, failed, fail_records = [], [], [], []
         for seed in seeds:
-            p = _sp_params(sp, stage, seed)
-            A, meta = build_basis_operator_v2(p, np.random.default_rng(seed), neg_fraction=negf)
-            base = build_base_snapshots(N, N_IL, sp["K"], np.random.default_rng(seed))
-            fast = paired_rate_schedule(base, N, N_IL, sp["cycles_fast"], H, "fast")
-            static = Schedule(N, N_IL, (Epoch(H, base[0]),), "static")
-            gf, gs = _gamma_from_A(A, sp, fast), _gamma_from_A(A, sp, static)
-            if not (np.isfinite(gf) and np.isfinite(gs)):
+            try:
+                p = _sp_params(sp, stage, seed)
+                A, meta = build_basis_operator_v2(p, np.random.default_rng(seed), neg_fraction=negf)
+                base = build_base_snapshots(N, N_IL, sp["K"], np.random.default_rng(seed))
+                fast = paired_rate_schedule(base, N, N_IL, sp["cycles_fast"], H, "fast")
+                static = Schedule(N, N_IL, (Epoch(H, base[0]),), "static")
+                gf, gs = _gamma_from_A(A, sp, fast), _gamma_from_A(A, sp, static)
+                if not (np.isfinite(gf) and np.isfinite(gs)):
+                    raise FloatingPointError("nonfinite gamma")
+                rec = {"seed": seed, "advantage": gf - gs,
+                       "n_negative_offdiag": meta["n_negative_offdiag"],
+                       "offdiag_frobenius_prescale": meta["offdiag_frobenius_prescale"]}
+                if stage["signed"]:
+                    # the unsigned comparator is part of the per-seed computation:
+                    # a failure here is a seed failure too (captured below)
+                    p_uns = SurrogateParams(N=N, kappa=sp["kappa"], rho_target=sp["rho_target"],
+                                            intra_coupling=sp["intra_coupling"],
+                                            heterogeneity=stage["heterogeneity"], directed=False,
+                                            signed=False, seed_struct=seed)
+                    _, meta_uns = build_basis_operator_v2(p_uns, np.random.default_rng(seed))
+                    budget_diff = abs(meta["offdiag_frobenius_prescale"]
+                                      - meta_uns["offdiag_frobenius_prescale"])
+                    rec["unsigned_budget_prescale"] = meta_uns["offdiag_frobenius_prescale"]
+                    rec["budget_diff"] = budget_diff
+                    if meta["n_negative_offdiag"] < 1 or budget_diff > tol:
+                        signed_invalid = True
+            except Exception as e:
                 failed.append(seed)
+                fail_records.append(failure_record(e, seed, {"stage": stage["name"]}))
                 continue
-            rec = {"seed": seed, "advantage": gf - gs,
-                   "n_negative_offdiag": meta["n_negative_offdiag"],
-                   "offdiag_frobenius_prescale": meta["offdiag_frobenius_prescale"]}
-            if stage["signed"]:
-                p_uns = SurrogateParams(N=N, kappa=sp["kappa"], rho_target=sp["rho_target"],
-                                        intra_coupling=sp["intra_coupling"],
-                                        heterogeneity=stage["heterogeneity"], directed=False,
-                                        signed=False, seed_struct=seed)
-                _, meta_uns = build_basis_operator_v2(p_uns, np.random.default_rng(seed))
-                budget_diff = abs(meta["offdiag_frobenius_prescale"]
-                                  - meta_uns["offdiag_frobenius_prescale"])
-                rec["unsigned_budget_prescale"] = meta_uns["offdiag_frobenius_prescale"]
-                rec["budget_diff"] = budget_diff
-                if meta["n_negative_offdiag"] < 1 or budget_diff > tol:
-                    signed_invalid = True
             advs.append(gf - gs)
             per_seed.append(rec)
 
@@ -99,7 +106,8 @@ def compute(ctx):
             if advs else {"verdict": "INCONCLUSIVE", "reason": "NO_DATA"}
         stage_pass[stage["name"]] = (dec["verdict"] == "PASS")
         results[stage["name"]] = {"decision": dec, "per_seed": per_seed,
-                                  "failed_seeds": failed, "frac_failed": frac_failed}
+                                  "failed_seeds": failed, "frac_failed": frac_failed,
+                                  "failure_records": fail_records}
 
     if any_failed_gate:
         verdict, reason = "EXECUTION_INVALID", "FAILED_RUNS"
@@ -115,10 +123,10 @@ def compute(ctx):
                                      "PASS iff faithful AND mild_heterogeneity PASS; signed stage "
                                      "requires per-seed negative weight and budget equality",
                                      reason_code=reason,
-                                     failures=[f for r in results.values() for f in r["failed_seeds"]]),
+                                     failures=[fr for r in results.values() for fr in r["failure_records"]]),
             "result": {"by_stage": results, "first_stage_without_pass": first_no_adv,
                        "advantage": "gamma_fast - gamma_static per seed (paired)"}}
 
 
 if __name__ == "__main__":
-    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT))
+    sys.exit(run_cli(GATE, __file__, plan, compute, REPORT, SCOPE))
