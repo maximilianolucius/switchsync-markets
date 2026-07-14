@@ -11,14 +11,20 @@ context via child_context(ctx, m.__file__, __file__), so every report records th
 scientific runner's real SHA and the suite's own SHA separately. There is no CLI
 argument to inject an orchestrator SHA.
 
-Transaction (contracts D/E): reports are written to <run-dir>/<attempt_id>.staging/.
-On FULL success: attempt_manifest.json (own content hash) -> fsync -> atomic rename
-to <run-dir>/<attempt_id>/ -> SEALED marker -> re-verification. On gate failure: a
-failure ledger + staging preserved as .failed-context; NO success bundle. On
-crash/interruption: staging preserved as .interrupted; never auto-retried. Resume
-requires --resume-authorized-attempt + --resume-authorization-token and exact
-checkpoint provenance (frozen policy; NOT exercised in P1.2-C). An flock prevents
-concurrent executions of the same attempt_id. Import-safe."""
+Transaction (contracts B/C/D): reports are written to
+<run-dir>/<attempt_id>.staging/. On FULL success the attempt manifest (which
+inventories every artifact and carries its own content hash) and the SEALED marker
+are written INTO staging, fsynced and fully validated, and only THEN published by a
+SINGLE atomic rename staging -> <run-dir>/<attempt_id>/ (no final-without-SEAL
+window), followed by post-rename re-verification. If pre-rename validation fails,
+`final` is never created; if the exceptional post-rename re-verification fails, the
+directory is moved to <attempt_id>.invalid (never left as a successful attempt). On a
+gate-invalid result OR any custody failure a failure ledger is written and staging is
+preserved as .interrupted; NO success bundle is published. There is NO resume: an
+.interrupted attempt is TERMINAL, a new run needs a new authorization token (a
+different attempt_id) and starts from scratch, and the checkpoint is EVIDENCE, not a
+resume input. An flock prevents concurrent executions of the same attempt_id.
+Import-safe."""
 from __future__ import annotations
 
 import argparse
@@ -35,6 +41,8 @@ from _contract_v2 import (
     atomic_write_report,
     build_context,
     child_context,
+    failure_record,
+    structured_command,
     validate_report_schema,
 )
 
@@ -150,53 +158,77 @@ def main(argv=None) -> int:
             return 2
         staging.mkdir(parents=True)
 
+        def _ledger_meta(phase, terminal_state):
+            # Contract J: auditable (not scientific) failure ledger with full
+            # identity, hashes, token SHA, phase and terminal state.
+            return {"campaign_id": ctx0.campaign_id, "attempt_id": ctx0.attempt_id,
+                    "execution_scope": scope,
+                    "hashes": {"prereg_canonical": ctx0.prereg_canonical_hash,
+                               "prereg_file_sha256": ctx0.prereg_file_sha256,
+                               "execution_contract_canonical": ctx0.execution_canonical_hash,
+                               "execution_contract_file_sha256": ctx0.execution_file_sha256,
+                               "freeze_content_hash": ctx0.freeze_content_hash},
+                    "freeze_commit": ctx0.freeze_commit, "freeze_tag": ctx0.freeze_tag,
+                    "authorization_token_sha256": ctx0.authorization_token_sha256,
+                    "started_utc": started, "phase": phase,
+                    "terminal_state": terminal_state}
+
         # initialize crash-handler state BEFORE the fallible call (fixes B: v5 hit
         # UnboundLocalError when _run_gates raised before assigning its return)
         written, verdicts, runner_shas, failures = {}, {}, {}, []
         run_list = _gates_for_scope(scope)
+        # Contract D: the ENTIRE custody cycle (gates -> inventory -> manifest ->
+        # seal -> post-verify) is inside ONE failure handler. Any custody failure
+        # yields a non-zero exit, a sanitized failure ledger, NO success bundle, and
+        # staging preserved as .interrupted (or final -> .invalid via seal_and_publish
+        # on the exceptional post-rename failure) with no secondary exception.
         try:
             written, verdicts, runner_shas, failures = _run_gates(
                 ctx0, staging, run_list, __file__)
+            if failures:
+                # a gate returned EXECUTION_INVALID: a clean scientific-invalid
+                # result, NOT an exception; ledger it and publish no success bundle.
+                _custody.write_failure_ledger(run_dir, ctx0.attempt_id, failures,
+                                              meta=_ledger_meta("gates", "INTERRUPTED"))
+                _custody.mark_interrupted(run_dir, ctx0.attempt_id)
+                print(f"SUITE FAILED: {failures}; NO success bundle published",
+                      file=sys.stderr)
+                return 1
+            roles = {name: "report" for name in written}
+            if (staging / "g0a_checkpoint.jsonl").exists():
+                roles["g0a_checkpoint.jsonl"] = "checkpoint"
+            artifacts = _custody.inventory_staging(staging, roles)
+            manifest = _custody.build_attempt_manifest(
+                campaign_id=ctx0.campaign_id, attempt_id=ctx0.attempt_id,
+                execution_scope=scope,
+                hashes={"prereg_canonical": ctx0.prereg_canonical_hash,
+                        "prereg_file_sha256": ctx0.prereg_file_sha256,
+                        "execution_contract_canonical": ctx0.execution_canonical_hash,
+                        "execution_contract_file_sha256": ctx0.execution_file_sha256,
+                        "freeze_content_hash": ctx0.freeze_content_hash},
+                head=ctx0.runtime_head, tag=ctx0.freeze_tag,
+                structured_command=structured_command(args, ctx0, argv if argv is not None else sys.argv[1:]),
+                runner_shas=runner_shas, orchestrator_sha=orch_sha,
+                authorization_token_sha256=ctx0.authorization_token_sha256,
+                started_utc=started, ended_utc=_custody.utc_now(), exit_status=0,
+                artifacts=artifacts, gate_verdicts=verdicts, environment=ctx0.environment)
+            _custody.seal_and_publish(staging, final, manifest)
         except KeyboardInterrupt:
             _custody.mark_interrupted(run_dir, ctx0.attempt_id)
             print("INTERRUPTED (external): staging preserved as .interrupted (terminal)",
                   file=sys.stderr)
             return 130
+        except SystemExit:
+            _custody.mark_interrupted(run_dir, ctx0.attempt_id)
+            raise
         except Exception as e:
-            from _contract_v2 import failure_record
-            failures = failures + [failure_record(e, None, "suite")]
-            _custody.write_failure_ledger(run_dir, ctx0.attempt_id, failures)
+            failures = (failures or []) + [failure_record(e, None, "suite")]
+            _custody.write_failure_ledger(run_dir, ctx0.attempt_id, failures,
+                                          meta=_ledger_meta("custody", "INTERRUPTED"))
             _custody.mark_interrupted(run_dir, ctx0.attempt_id)
             print(f"SUITE FAILED: {type(e).__name__}: {str(e)[:200]}; failure ledger "
                   "written; NO success bundle published", file=sys.stderr)
             return 1
-
-        if failures:
-            _custody.write_failure_ledger(run_dir, ctx0.attempt_id, failures)
-            _custody.mark_interrupted(run_dir, ctx0.attempt_id)
-            print(f"SUITE FAILED: {failures}; NO success bundle published", file=sys.stderr)
-            return 1
-
-        roles = {name: "report" for name in written}
-        if (staging / "g0a_checkpoint.jsonl").exists():
-            roles["g0a_checkpoint.jsonl"] = "checkpoint"
-        artifacts = _custody.inventory_staging(staging, roles)
-        from _contract_v2 import structured_command
-        manifest = _custody.build_attempt_manifest(
-            campaign_id=ctx0.campaign_id, attempt_id=ctx0.attempt_id,
-            execution_scope=scope,
-            hashes={"prereg_canonical": ctx0.prereg_canonical_hash,
-                    "prereg_file_sha256": ctx0.prereg_file_sha256,
-                    "execution_contract_canonical": ctx0.execution_canonical_hash,
-                    "execution_contract_file_sha256": ctx0.execution_file_sha256,
-                    "freeze_content_hash": ctx0.freeze_content_hash},
-            head=ctx0.runtime_head, tag=ctx0.freeze_tag,
-            structured_command=structured_command(args, ctx0, argv if argv is not None else sys.argv[1:]),
-            runner_shas=runner_shas, orchestrator_sha=orch_sha,
-            authorization_token_sha256=ctx0.authorization_token_sha256,
-            started_utc=started, ended_utc=_custody.utc_now(), exit_status=0,
-            artifacts=artifacts, gate_verdicts=verdicts, environment=ctx0.environment)
-        _custody.seal_and_publish(staging, final, manifest)
         for gate, verdict in verdicts.items():
             print(f"  {gate}: {verdict}")
         if scope == "cheap-suite":

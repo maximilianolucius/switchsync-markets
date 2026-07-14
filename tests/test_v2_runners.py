@@ -208,7 +208,7 @@ def test_extra_file_fails_verification(tmp_path):
     final = _custody.final_dir(tmp_path, "att3")
     (final / "sneaky.json").write_text("{}")       # unexpected extra file
     v = _custody.verify_sealed_attempt(final)
-    assert not v["ok"] and any("unexpected file" in e for e in v["errors"])
+    assert not v["ok"] and any("unexpected" in e for e in v["errors"])
 
 
 def test_symlink_fails_verification(tmp_path):
@@ -405,11 +405,11 @@ def test_lyapunov_abort_inside_chaos():
 def test_g0a_deadline_inside_chaos_stops_gate(tmp_path, monkeypatch):
     seq = {"n": 0}
 
-    def fake_time():
+    def fake_monotonic():                    # G: the soft budget uses time.monotonic
         seq["n"] += 1
         return 0.0 if seq["n"] <= 3 else 1e9
 
-    monkeypatch.setattr(g0a.time, "time", fake_time)
+    monkeypatch.setattr(g0a.time, "monotonic", fake_monotonic)
     rep = g0a.compute(_ctx("G0A", tmp_path, scope="individual:G0A"))
     assert rep["verdict"] == "INCONCLUSIVE"
     assert rep["provenance"]["reason_code"] == "INCONCLUSIVE_BY_COST"

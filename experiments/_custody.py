@@ -1,24 +1,32 @@
-"""Durable checkpoint ledger + immutable attempt publication (P1.2-C).
+"""Durable checkpoint ledger + immutable attempt publication.
 
-CheckpointLedger v2 (contract F): append-only JSONL with a per-record hash chain:
+CheckpointLedger (contract F): append-only JSONL with a per-record hash chain:
   {"seq": n, "prev_record_hash": h_{n-1}, "cell": {...}, "result": {...},
    "provenance_key": pk, "record_hash": sha256(canonical(body))}
 On load it verifies: strictly sequential seq (no gaps), an unbroken prev/record
 hash chain (detects reordering and changed results), no duplicate cell UIDs, and
-matching provenance. A truncated/corrupt LAST line raises TruncatedTail (the valid
-prefix is preserved, never silently deleted); loading past it requires the explicit
-`allow_truncated_tail=True` (resume authorization path only). Corruption anywhere
-else raises CheckpointCorrupt.
+matching provenance. A truncated/corrupt LAST line raises TruncatedTail: it is
+corruption, detected and PRESERVED as evidence, never silently deleted and never a
+resume input. allow_truncated_tail=True loads the valid prefix READ-ONLY for
+evidence inspection (an immutable .truncated snapshot is written, the live file is
+left untouched, and no further append is permitted); a truncated ledger is never
+continued. Corruption anywhere else raises CheckpointCorrupt.
 
-Attempt publication (contracts C/D/E): each authorized execution attempt owns
-  <run-dir>/<attempt_id>.staging/      work in progress
+Attempt publication (contracts B/C/D): each authorized attempt owns
+  <run-dir>/<attempt_id>.staging/      work in progress (flock-held)
   <run-dir>/<attempt_id>.failed/       failure ledger (no success bundle)
-  <run-dir>/<attempt_id>.interrupted/  preserved staging after crash/interruption
+  <run-dir>/<attempt_id>.interrupted/  preserved staging (terminal; never resumed)
+  <run-dir>/<attempt_id>.invalid/      exceptional post-rename verify failure (terminal)
   <run-dir>/<attempt_id>/              final, immutable, SEALED
-Publication builds attempt_manifest.json (with its own content hash), fsyncs,
-re-verifies every report SHA, atomically renames staging -> final and writes the
-SEALED marker. A SEALED directory refuses further writes. An flock on
-<run-dir>/<attempt_id>.lock prevents concurrent executions of the same attempt.
+Publication inventories staging, builds attempt_manifest.json (with its own content
+hash), writes the manifest + SEALED INTO staging, fsyncs files and directory, runs a
+SINGLE full validation, and ONLY if every check passes performs a SINGLE atomic
+rename staging -> final (no final-without-SEAL window) followed by post-rename
+re-verification. A deterministic pre-rename validation error leaves `final`
+nonexistent; an exceptional post-rename failure moves final -> .invalid. A SEALED
+directory refuses further writes; verify_sealed_attempt NEVER raises on a malformed
+manifest. An flock on <run-dir>/<attempt_id>.lock prevents concurrent executions of
+the same attempt.
 """
 from __future__ import annotations
 
@@ -26,8 +34,13 @@ import fcntl
 import hashlib
 import json
 import os
+import re
+import stat
 from datetime import datetime, timezone
 from pathlib import Path
+
+VALID_ROLES = {"report", "checkpoint", "evidence"}
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class CheckpointCorrupt(Exception):
@@ -79,6 +92,7 @@ class CheckpointLedger:
         self._done: dict[str, dict] = {}
         self._last_hash = GENESIS
         self._next_seq = 0
+        self._readonly = False
         if self.path.exists():
             self._load()
 
@@ -133,28 +147,30 @@ class CheckpointLedger:
         self._next_seq = len(complete_lines)
 
         if tail:
-            # truncated (no trailing newline) or corrupt final line: preserve
-            # the prefix; never delete evidence; require authorization to go on.
+            # A truncated/corrupt FINAL line is corruption: detected and PRESERVED as
+            # evidence, never silently deleted and never a resume input. By default
+            # this raises. With allow_truncated_tail=True the valid prefix is loaded
+            # READ-ONLY for evidence inspection: an immutable .truncated snapshot is
+            # written, the live file is left untouched, and no further append is
+            # permitted (a truncated ledger is never continued).
             if not self.allow_truncated_tail:
                 raise TruncatedTail(
                     f"ledger has a truncated/corrupt final line after "
-                    f"{self._next_seq} valid records; resume requires authorization",
-                    n_valid=self._next_seq)
-            # authorized: keep prefix loaded; the truncated tail stays on disk
-            # untouched and subsequent appends go AFTER it is preserved by moving
-            # the file to a .truncated evidence copy first.
+                    f"{self._next_seq} valid records; preserved as evidence (never "
+                    f"resumed)", n_valid=self._next_seq)
             evidence = self.path.with_suffix(self.path.suffix + ".truncated")
             if not evidence.exists():
                 evidence.write_text(raw)
                 _fsync_dir(self.path.parent)
-            valid = "\n".join(complete_lines)
-            self.path.write_text(valid + ("\n" if valid else ""))
-            _fsync_dir(self.path.parent)
+            self._readonly = True
 
     def has(self, cell: dict) -> bool:
         return self._cell_key(cell) in self._done
 
     def append(self, cell: dict, result: dict) -> None:
+        if self._readonly:
+            raise CheckpointCorrupt("ledger loaded READ-ONLY from a truncated tail; "
+                                    "no append and no continuation (never resumed)")
         key = self._cell_key(cell)
         if key in self._done:
             raise CheckpointCorrupt(f"duplicate cell refused: {key}")
@@ -225,32 +241,49 @@ RESERVED = {"attempt_manifest.json", "SEALED"}
 
 
 def _safe_relname(name: str) -> bool:
-    if name in ("", ".", ".."):
+    if not isinstance(name, str) or name in ("", ".", ".."):
         return False
-    if name.startswith("/") or ".." in Path(name).parts:
+    if name.startswith("/") or "/" in name or "\\" in name or ".." in Path(name).parts:
         return False
     return True
 
 
+def _entry_kind(p: Path) -> str:
+    """Classify a filesystem entry WITHOUT following symlinks."""
+    m = os.lstat(p).st_mode
+    if stat.S_ISLNK(m):
+        return "symlink"
+    if stat.S_ISDIR(m):
+        return "dir"
+    if stat.S_ISREG(m):
+        return "file"
+    if stat.S_ISFIFO(m):
+        return "fifo"
+    if stat.S_ISSOCK(m):
+        return "socket"
+    return "device"
+
+
 def inventory_staging(staging: Path, roles: dict) -> dict:
-    """Build the artifact inventory of a staging dir: for every regular file that
-    is NOT a reserved name, record size, sha256 and a declared role. Rejects
-    symlinks / non-regular files and any file lacking a declared role (unexpected
-    file). Rejects unsafe names. Returns {name: {size, sha256, role}}."""
+    """Build the artifact inventory of a FLAT staging dir: every top-level entry
+    must be a regular file (no subdirectories, symlinks, FIFO/socket/device),
+    non-reserved, safely named, and declared in `roles`. Returns
+    {name: {size, sha256, role}}."""
     staging = Path(staging)
     inv = {}
-    for p in sorted(staging.rglob("*")):
-        rel = p.relative_to(staging).as_posix()
+    for p in sorted(staging.iterdir()):          # top-level only => enforces flat
+        rel = p.name
+        kind = _entry_kind(p)
+        if kind != "file":
+            raise CheckpointCorrupt(f"non-regular staging entry ({kind}) refused: {rel}")
         if rel in RESERVED:
             raise CheckpointCorrupt(f"reserved name present before sealing: {rel}")
-        if p.is_dir():
-            continue
-        if p.is_symlink() or not p.is_file():
-            raise CheckpointCorrupt(f"non-regular/symlink artifact refused: {rel}")
         if not _safe_relname(rel):
             raise CheckpointCorrupt(f"unsafe artifact name: {rel}")
         if rel not in roles:
             raise CheckpointCorrupt(f"unexpected (undeclared) artifact: {rel}")
+        if roles[rel] not in VALID_ROLES:
+            raise CheckpointCorrupt(f"invalid role {roles[rel]!r} for {rel}")
         data = p.read_bytes()
         inv[rel] = {"size": len(data), "sha256": hashlib.sha256(data).hexdigest(),
                     "role": roles[rel]}
@@ -258,6 +291,82 @@ def inventory_staging(staging: Path, roles: dict) -> dict:
     if missing_roles:
         raise CheckpointCorrupt(f"declared artifacts missing from staging: {sorted(missing_roles)}")
     return inv
+
+
+_MANIFEST_FIELDS = {
+    "campaign_id": str, "attempt_id": str, "execution_scope": str, "hashes": dict,
+    "head": str, "tag": str, "structured_command": dict, "runner_shas": dict,
+    "orchestrator_sha256": (str, type(None)), "authorization_token_sha256": str,
+    "started_utc": str, "ended_utc": str, "exit_status": int, "artifacts": dict,
+    "gate_verdicts": dict, "environment": dict, "state": str,
+    "manifest_content_hash": str,
+}
+
+
+def validate_manifest_and_staging(staging: Path, manifest) -> list:
+    """SINGLE pre-rename validation (contract B/C). Returns a list of error
+    strings (empty == valid). Never raises on a malformed manifest."""
+    errors = []
+    if not isinstance(manifest, dict):
+        return ["manifest is not a dict"]
+    for f, typ in _MANIFEST_FIELDS.items():
+        if f not in manifest:
+            errors.append(f"missing manifest field: {f}")
+        elif not isinstance(manifest[f], typ):
+            errors.append(f"manifest field {f} has wrong type")
+    if errors:
+        return errors
+    # recomputed content hash
+    body = {k: v for k, v in manifest.items() if k != "manifest_content_hash"}
+    if _sha(_canonical(body)) != manifest["manifest_content_hash"]:
+        errors.append("manifest content hash mismatch")
+    # coherent identifiers
+    for f in ("campaign_id", "attempt_id", "execution_scope", "authorization_token_sha256"):
+        if not manifest[f]:
+            errors.append(f"empty {f}")
+    # artifact metadata exactness
+    inv = manifest["artifacts"]
+    for name, meta in inv.items():
+        if not _safe_relname(name) or name in RESERVED:
+            errors.append(f"unsafe/reserved artifact name in manifest: {name}"); continue
+        if not isinstance(meta, dict) or {"size", "sha256", "role"} - set(meta):
+            errors.append(f"artifact {name} metadata incomplete"); continue
+        if not isinstance(meta["size"], int) or meta["size"] < 0:
+            errors.append(f"artifact {name} bad size")
+        if not (isinstance(meta["sha256"], str) and SHA256_RE.match(meta["sha256"])):
+            errors.append(f"artifact {name} bad sha256")
+        if meta["role"] not in VALID_ROLES:
+            errors.append(f"artifact {name} bad role")
+    # staging must be FLAT and contain EXACTLY the declared artifacts + reserved
+    staging = Path(staging)
+    present = {}
+    for p in staging.iterdir():
+        present[p.name] = _entry_kind(p)
+    for name, kind in present.items():
+        if kind != "file":
+            errors.append(f"non-regular staging entry {name} ({kind})")
+    expected = set(inv) | RESERVED
+    extra = set(present) - expected
+    if extra:
+        errors.append(f"unexpected staging entries: {sorted(extra)}")
+    missing = expected - set(present)
+    if missing:
+        errors.append(f"missing staging entries: {sorted(missing)}")
+    # each artifact matches its inventoried size + hash
+    for name, meta in inv.items():
+        p = staging / name
+        if present.get(name) == "file":
+            data = p.read_bytes()
+            if len(data) != meta.get("size"):
+                errors.append(f"artifact size mismatch: {name}")
+            if hashlib.sha256(data).hexdigest() != meta.get("sha256"):
+                errors.append(f"artifact hash mismatch: {name}")
+    # manifest <-> SEALED consistency
+    seal = staging / "SEALED"
+    if present.get("SEALED") == "file":
+        if seal.read_text().strip() != manifest["manifest_content_hash"]:
+            errors.append("SEALED marker does not match manifest content hash")
+    return errors
 
 
 def build_attempt_manifest(*, campaign_id, attempt_id, execution_scope, hashes,
@@ -288,62 +397,79 @@ def _write_fsync(path: Path, text: str) -> None:
         os.fsync(fh.fileno())
 
 
+def invalid_dir(run_dir, attempt_id: str) -> Path:
+    return Path(run_dir) / f"{attempt_id}.invalid"
+
+
 def seal_and_publish(staging: Path, final: Path, manifest: dict) -> None:
-    """Write manifest + SEALED INTO staging, fsync, verify the full inventory,
-    then a SINGLE atomic rename staging->final (no final-without-SEAL window).
-    Re-verify the exact inventory afterward."""
+    """Mandatory sequence (contract B): (1) staging already inventoried by caller;
+    (2) manifest built; (3) write manifest + SEALED into staging; (4) fsync; (5)
+    validate the FULL staging incl. manifest+SEALED via the single validator; (6)
+    ONLY if all passes, a single atomic rename staging->final; (7) re-verify final.
+    A deterministic pre-rename error leaves `final` nonexistent. If the exceptional
+    post-rename re-verification fails, final is moved to <attempt_id>.invalid and an
+    error is raised (never left as a successful attempt)."""
     staging, final = Path(staging), Path(final)
     if final.exists():
         raise FileExistsError(f"refusing to overwrite published attempt: {final}")
-    inv = manifest["artifacts"]
-    # verify each inventoried artifact exists with the right size + hash
-    for name, meta in inv.items():
-        p = staging / name
-        if not p.exists() or p.is_symlink() or not p.is_file():
-            raise CheckpointCorrupt(f"artifact missing/irregular before publish: {name}")
-        data = p.read_bytes()
-        if len(data) != meta["size"] or hashlib.sha256(data).hexdigest() != meta["sha256"]:
-            raise CheckpointCorrupt(f"artifact size/hash mismatch before publish: {name}")
-    # no undeclared files present
-    for p in staging.rglob("*"):
-        if p.is_file():
-            rel = p.relative_to(staging).as_posix()
-            if rel not in inv and rel not in RESERVED:
-                raise CheckpointCorrupt(f"unexpected file before sealing: {rel}")
-    # write manifest + SEALED INSIDE staging, fsync everything
     _write_fsync(staging / "attempt_manifest.json",
                  json.dumps(manifest, indent=2, sort_keys=True))
-    _write_fsync(staging / "SEALED", manifest["manifest_content_hash"] + "\n")
-    for p in staging.rglob("*"):
-        if p.is_file():
+    _write_fsync(staging / "SEALED",
+                 (manifest.get("manifest_content_hash", "") if isinstance(manifest, dict) else "") + "\n")
+    for p in staging.iterdir():
+        if _entry_kind(p) == "file":
             fd = os.open(str(p), os.O_RDONLY)
             try:
                 os.fsync(fd)
             finally:
                 os.close(fd)
     _fsync_dir(staging)
+    errors = validate_manifest_and_staging(staging, manifest)
+    if errors:
+        raise CheckpointCorrupt(f"pre-rename validation failed (final NOT created): {errors}")
     os.replace(staging, final)          # single atomic publish; SEALED already inside
     _fsync_dir(final.parent)
-    res = verify_sealed_attempt(final)   # post-rename re-verification of the exact inventory
+    res = verify_sealed_attempt(final)
     if not res["ok"]:
-        raise CheckpointCorrupt(f"post-publish verification failed: {res['errors']}")
+        inv = invalid_dir(final.parent, final.name)
+        try:
+            os.replace(final, inv)
+            _fsync_dir(final.parent)
+        except OSError:
+            pass
+        raise CheckpointCorrupt(
+            f"post-publish verification failed; moved to {inv.name}: {res['errors']}")
 
 
 def verify_sealed_attempt(final: Path) -> dict:
-    """Adversarially verify a sealed attempt. Rejects: tampered manifest/SEALED,
-    corrupt/missing/extra/wrong-size/wrong-hash artifact, symlink or non-regular
-    file, absolute or '..' path. A valid attempt contains EXACTLY
-    attempt_manifest.json, SEALED and the inventoried artifacts."""
-    final = Path(final)
-    errors = []
-    man_p = final / "attempt_manifest.json"
-    seal_p = final / "SEALED"
-    if not man_p.is_file() or not seal_p.is_file():
-        return {"ok": False, "errors": ["missing manifest or SEALED marker"]}
+    """Adversarially verify a sealed attempt. NEVER raises (returns ok=False with
+    errors on any malformation). Rejects tampered manifest/SEALED, corrupt/missing/
+    extra/wrong-size-or-hash artifact, symlink/dir/special entry, unsafe path. A
+    valid attempt contains EXACTLY attempt_manifest.json, SEALED and the
+    inventoried artifacts (flat)."""
     try:
-        manifest = json.loads(man_p.read_text())
-    except Exception as e:
-        return {"ok": False, "errors": [f"manifest not JSON: {e}"]}
+        final = Path(final)
+        man_p = final / "attempt_manifest.json"
+        seal_p = final / "SEALED"
+        if not (man_p.exists() and _entry_kind(man_p) == "file"):
+            return {"ok": False, "errors": ["missing/irregular manifest"]}
+        if not (seal_p.exists() and _entry_kind(seal_p) == "file"):
+            return {"ok": False, "errors": ["missing/irregular SEALED marker"]}
+        try:
+            manifest = json.loads(man_p.read_text())
+        except Exception as e:
+            return {"ok": False, "errors": [f"manifest not JSON: {e}"]}
+        return {"ok": (lambda es: not es)(
+            _verify_final_body(final, manifest, seal_p)),
+            "errors": _verify_final_body(final, manifest, seal_p)}
+    except Exception as e:   # defensive: verification must never throw
+        return {"ok": False, "errors": [f"verification exception: {type(e).__name__}: {e}"]}
+
+
+def _verify_final_body(final: Path, manifest, seal_p: Path) -> list:
+    if not isinstance(manifest, dict):
+        return ["manifest is not a dict"]
+    errors = []
     body = {k: v for k, v in manifest.items() if k != "manifest_content_hash"}
     mh = manifest.get("manifest_content_hash")
     if _sha(_canonical(body)) != mh:
@@ -351,50 +477,58 @@ def verify_sealed_attempt(final: Path) -> dict:
     if seal_p.read_text().strip() != mh:
         errors.append("SEALED marker does not match manifest hash")
     inv = manifest.get("artifacts", {})
-    # every inventoried artifact present, regular, correct size + hash
+    if not isinstance(inv, dict):
+        return errors + ["artifacts not a dict"]
+    present = {}
+    for p in final.iterdir():
+        present[p.name] = _entry_kind(p)
+    for name, kind in present.items():
+        if kind != "file":
+            errors.append(f"non-regular entry present: {name} ({kind})")
     for name, meta in inv.items():
         if not _safe_relname(name):
             errors.append(f"unsafe artifact name in manifest: {name}"); continue
-        p = final / name
-        if not p.exists():
+        if present.get(name) != "file":
             errors.append(f"missing artifact {name}"); continue
-        if p.is_symlink() or not p.is_file():
-            errors.append(f"non-regular/symlink artifact {name}"); continue
-        data = p.read_bytes()
-        if len(data) != meta.get("size"):
+        data = (final / name).read_bytes()
+        if not isinstance(meta, dict) or len(data) != meta.get("size"):
             errors.append(f"artifact size mismatch: {name}")
-        if hashlib.sha256(data).hexdigest() != meta.get("sha256"):
+        if hashlib.sha256(data).hexdigest() != (meta or {}).get("sha256"):
             errors.append(f"artifact SHA mismatch: {name}")
-    # exact inventory: no extra files, no stray symlinks/dirs
     expected = set(inv) | RESERVED
-    for p in final.rglob("*"):
-        rel = p.relative_to(final).as_posix()
-        if p.is_symlink():
-            errors.append(f"symlink present: {rel}"); continue
-        if p.is_dir():
-            continue
-        if rel not in expected:
-            errors.append(f"unexpected file present: {rel}")
-    return {"ok": not errors, "errors": errors}
+    extra = set(present) - expected
+    if extra:
+        errors.append(f"unexpected entries present: {sorted(extra)}")
+    return errors
 
 
 def mark_interrupted(run_dir, attempt_id: str) -> Path:
-    """Preserve a crashed/interrupted staging as .interrupted (never auto-retry)."""
+    """Preserve a crashed/interrupted staging as .interrupted (terminal; never
+    resumed). No-op if staging is absent."""
     st = staging_dir(run_dir, attempt_id)
     dst = interrupted_dir(run_dir, attempt_id)
-    if st.exists():
+    if st.exists() and not dst.exists():
         os.replace(st, dst)
         _fsync_dir(Path(run_dir))
     return dst
 
 
-def write_failure_ledger(run_dir, attempt_id: str, failures: list) -> Path:
+def write_failure_ledger(run_dir, attempt_id: str, failures: list, meta=None) -> Path:
+    """Atomic, NON-overwritable failure ledger (contract J). If a ledger already
+    exists it writes the next numbered variant (never a secondary exception)."""
     d = failed_dir(run_dir, attempt_id)
     d.mkdir(parents=True, exist_ok=True)
     out = d / "failure_ledger.json"
-    tmp = out.with_suffix(".json.tmp")
-    _write_fsync(tmp, json.dumps({"attempt_id": attempt_id, "failures": failures,
-                                  "utc": utc_now()}, indent=2, sort_keys=True))
+    n = 0
+    while out.exists():
+        n += 1
+        out = d / f"failure_ledger.{n}.json"
+    payload = {"attempt_id": attempt_id, "utc": utc_now(),
+               "terminal_state": "FAILED", "failures": failures}
+    if meta:
+        payload.update(meta)
+    tmp = out.with_suffix(out.suffix + ".tmp")
+    _write_fsync(tmp, json.dumps(payload, indent=2, sort_keys=True))
     os.replace(tmp, out)
     _fsync_dir(d)
     return out

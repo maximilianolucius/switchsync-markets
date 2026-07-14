@@ -19,19 +19,24 @@ def frac_synced_grid(N, N_IL, sigma_inter, T_swt_grid, total_time, dt, record_ev
     cfg = SimConfig(dt=dt, total_time=total_time, record_every=record_every)
     rows = []
     for T_swt in T_swt_grid:
-        dwell = int(round(T_swt / dt))
-        n_epochs = int(np.ceil(total_time / T_swt)) + 2
         flags, tails, failed, fail_records = [], [], [], []
         for seed in seeds:
-            x0 = initial_state(N, np.random.default_rng(1000 + seed))
-            sched = random_switching(N, N_IL, dwell, n_epochs,
-                                     np.random.default_rng(2000 + seed), f"T{T_swt}")
-            # KeyboardInterrupt / SystemExit are BaseException and propagate as
-            # external interruptions; only ordinary Exceptions/nonfinite are captured.
+            # Contract H: cell-dependent params, initial-state and schedule
+            # construction ALL inside the per-seed try, so a construction error
+            # becomes a full failure record rather than escaping. KeyboardInterrupt /
+            # SystemExit are BaseException and propagate as external interruptions;
+            # only ordinary Exceptions/nonfinite are captured.
             try:
+                dwell = int(round(T_swt / dt))
+                n_epochs = int(np.ceil(total_time / T_swt)) + 2
+                x0 = initial_state(N, np.random.default_rng(1000 + seed))
+                sched = random_switching(N, N_IL, dwell, n_epochs,
+                                         np.random.default_rng(2000 + seed), f"T{T_swt}")
                 res = simulate(p, sched, cfg, x0)
                 if not np.all(np.isfinite(res.e12)):
                     raise FloatingPointError("non-finite E12")
+            except (KeyboardInterrupt, SystemExit):
+                raise
             except Exception as e:
                 failed.append(int(seed))
                 fail_records.append(failure_record(e, int(seed),

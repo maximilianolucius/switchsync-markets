@@ -1,6 +1,6 @@
-"""Execution contract + custody for the v2 runners (P1.2-D).
+"""Execution contract + custody for the v2 runners.
 
-Documents (defaults): scientific prereg v6 + execution contract v4 + freeze v6.
+Documents (defaults): scientific prereg v7 + execution contract v5 + freeze v7.
 
 Identity (contract C/E):
   campaign_id = sha256(prereg_canonical | exec_canonical | freeze_content | freeze_commit)[:16]
@@ -16,8 +16,10 @@ that computed it. The orchestrator SHA is set exclusively by run_suite_v2 throug
 orchestrator_sha256 = null and execution_mode = "individual:<gate>".
 
 Custody (contract D): reports are written into the attempt's staging directory;
-writing into a SEALED directory is refused; there is no overwrite/resume/retry
-without the explicit frozen policy (prereg v5 custody section). Import-safe.
+writing into a SEALED directory is refused; there is NO overwrite, NO resume and NO
+retry — an .interrupted/.invalid attempt is terminal and a new run needs a new
+authorization token (a different attempt_id) and starts from scratch (prereg v7
+crash_and_resume_policy). Import-safe.
 """
 from __future__ import annotations
 
@@ -40,9 +42,9 @@ import numpy as np  # noqa: E402
 
 from src.validation.freeze_v2 import config_canonical_hash, verify_manifest_v2  # noqa: E402
 
-DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v6.json"
-DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v4.json"
-DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v6.json"
+DEFAULT_PREREG = REPO_ROOT / "experiments" / "configs" / "synthetic_prereg_v7.json"
+DEFAULT_EXEC = REPO_ROOT / "experiments" / "configs" / "synthetic_execution_contract_v5.json"
+DEFAULT_FREEZE = REPO_ROOT / "artifacts" / "freeze_execution_v7.json"
 
 VERDICTS = {"PASS", "FAIL", "INCONCLUSIVE", "EXECUTION_INVALID", "NOT_INTERPRETABLE"}
 REASON_CODES = {"INCONCLUSIVE_BY_COST", "TIE", "NOT_SIGNIFICANT",
@@ -479,48 +481,77 @@ def run_cli(gate: str, runner_file: str, plan_fn, compute_fn, report_name: str,
                   "from scratch (frozen policy).", file=sys.stderr)
             return 2
         staging.mkdir(parents=True)
+
+        def _ledger_meta(phase, terminal_state):
+            # Contract J: an auditable (not scientific) failure ledger carrying the
+            # full identity, freeze/prereg/contract hashes, token SHA, phase and
+            # terminal state.
+            return {"campaign_id": ctx.campaign_id, "attempt_id": ctx.attempt_id,
+                    "execution_scope": ctx.execution_scope,
+                    "hashes": {"prereg_canonical": ctx.prereg_canonical_hash,
+                               "prereg_file_sha256": ctx.prereg_file_sha256,
+                               "execution_contract_canonical": ctx.execution_canonical_hash,
+                               "execution_contract_file_sha256": ctx.execution_file_sha256,
+                               "freeze_content_hash": ctx.freeze_content_hash},
+                    "freeze_commit": ctx.freeze_commit, "freeze_tag": ctx.freeze_tag,
+                    "authorization_token_sha256": ctx.authorization_token_sha256,
+                    "started_utc": started, "phase": phase,
+                    "terminal_state": terminal_state}
+
+        # Contract D: the ENTIRE custody cycle (compute -> schema -> report ->
+        # inventory -> manifest -> seal -> post-verify) is inside ONE failure
+        # handler. Any custody failure yields a non-zero exit, a sanitized failure
+        # record + ledger, NO success bundle, staging preserved as .interrupted if it
+        # still exists, and (if the rename already happened) final moved to .invalid
+        # by seal_and_publish — never a secondary exception/traceback.
         try:
             report = compute_fn(ctx)
             validate_report_schema(report)
-            out = atomic_write_report(ctx, report_name, report)
-        except ContractError as e:
-            _custody.write_failure_ledger(run_dir, ctx.attempt_id,
-                                          [{"gate": gate, "error": str(e)[:200]}])
-            _custody.mark_interrupted(run_dir, ctx.attempt_id)
-            print(f"CONTRACT ERROR: {e}", file=sys.stderr)
-            return 2
+            atomic_write_report(ctx, report_name, report)
+            roles = {report_name: "report"}
+            if (Path(ctx.out_dir) / "g0a_checkpoint.jsonl").exists():
+                roles["g0a_checkpoint.jsonl"] = "checkpoint"
+            inv = _custody.inventory_staging(staging, roles)
+            manifest = _custody.build_attempt_manifest(
+                campaign_id=ctx.campaign_id, attempt_id=ctx.attempt_id,
+                execution_scope=ctx.execution_scope,
+                hashes={"prereg_canonical": ctx.prereg_canonical_hash,
+                        "prereg_file_sha256": ctx.prereg_file_sha256,
+                        "execution_contract_canonical": ctx.execution_canonical_hash,
+                        "execution_contract_file_sha256": ctx.execution_file_sha256,
+                        "freeze_content_hash": ctx.freeze_content_hash},
+                head=ctx.runtime_head, tag=ctx.freeze_tag,
+                structured_command=structured_command(args, ctx, argv or sys.argv[1:]),
+                runner_shas={gate: ctx.runner_sha256}, orchestrator_sha=None,
+                authorization_token_sha256=ctx.authorization_token_sha256,
+                started_utc=started, ended_utc=_custody.utc_now(), exit_status=0,
+                artifacts=inv, gate_verdicts={gate: report["verdict"]},
+                environment=ctx.environment)
+            _custody.seal_and_publish(
+                staging, _custody.final_dir(run_dir, ctx.attempt_id), manifest)
         except KeyboardInterrupt:
             _custody.mark_interrupted(run_dir, ctx.attempt_id)
             print("INTERRUPTED: staging preserved as .interrupted (terminal; no retry)",
                   file=sys.stderr)
             return 130
-        except Exception as e:
-            _custody.write_failure_ledger(run_dir, ctx.attempt_id,
-                                          [failure_record(e, None, gate)])
+        except SystemExit:
             _custody.mark_interrupted(run_dir, ctx.attempt_id)
-            print(f"EXECUTION ERROR: {type(e).__name__}: {e}", file=sys.stderr)
+            raise
+        except ContractError as e:
+            _custody.write_failure_ledger(
+                run_dir, ctx.attempt_id, [failure_record(e, None, gate)],
+                meta=_ledger_meta("custody", "INTERRUPTED"))
+            _custody.mark_interrupted(run_dir, ctx.attempt_id)
+            print(f"CONTRACT ERROR: {e}", file=sys.stderr)
+            return 2
+        except Exception as e:
+            _custody.write_failure_ledger(
+                run_dir, ctx.attempt_id, [failure_record(e, None, gate)],
+                meta=_ledger_meta("custody", "INTERRUPTED"))
+            _custody.mark_interrupted(run_dir, ctx.attempt_id)
+            print(f"EXECUTION ERROR: {type(e).__name__}: {str(e)[:200]}; failure ledger "
+                  "written; NO success bundle published", file=sys.stderr)
             return 1
-        roles = {report_name: "report"}
-        if (Path(ctx.out_dir) / "g0a_checkpoint.jsonl").exists():
-            roles["g0a_checkpoint.jsonl"] = "checkpoint"
-        inv = _custody.inventory_staging(staging, roles)
-        manifest = _custody.build_attempt_manifest(
-            campaign_id=ctx.campaign_id, attempt_id=ctx.attempt_id,
-            execution_scope=ctx.execution_scope,
-            hashes={"prereg_canonical": ctx.prereg_canonical_hash,
-                    "prereg_file_sha256": ctx.prereg_file_sha256,
-                    "execution_contract_canonical": ctx.execution_canonical_hash,
-                    "execution_contract_file_sha256": ctx.execution_file_sha256,
-                    "freeze_content_hash": ctx.freeze_content_hash},
-            head=ctx.runtime_head, tag=ctx.freeze_tag,
-            structured_command=structured_command(args, ctx, argv or sys.argv[1:]),
-            runner_shas={gate: ctx.runner_sha256}, orchestrator_sha=None,
-            authorization_token_sha256=ctx.authorization_token_sha256,
-            started_utc=started, ended_utc=_custody.utc_now(), exit_status=0,
-            artifacts=inv, gate_verdicts={gate: report["verdict"]},
-            environment=ctx.environment)
-        _custody.seal_and_publish(staging, _custody.final_dir(run_dir, ctx.attempt_id),
-                                  manifest)
         print(f"published sealed attempt {ctx.attempt_id} verdict={report['verdict']}")
         return 0
     finally:

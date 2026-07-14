@@ -89,11 +89,24 @@ chunked deadline and frozen quantifiers, and external transactional result custo
 ## P1.2-D addendum (pre-execution correction; NOT executed)
 
 Execution freeze v5 was independently found **NONEXECUTABLE** (`docs/audits/p1_2c_independent_audit.md`)
-and is SUPERSEDED / NEVER RUN. The authoritative, executable contract is now
-**prereg v6** (canonical `2d7e260f…`) + **execution contract v4** (canonical `eb0e80d9…`)
-+ **execution freeze v6** (`switchsync-synthetic-execution-v6-freeze`). Fixes: suite
-crash handler (no UnboundLocalError), integral attempt manifest with atomic sealing
-and adversarial verification, coherent no-resume interruption policy, token-SHA
-attempt identity + structured reconstructible command, G0A technical-vs-cost
+and is SUPERSEDED / NEVER RUN. Prereg v6 + execution contract v4 + execution freeze v6
+followed, with: suite crash handler (no UnboundLocalError), integral attempt manifest
+with atomic sealing and adversarial verification, a no-resume interruption policy,
+token-SHA attempt identity + structured reconstructible command, a G0A technical-vs-cost
 taxonomy with a chaos-covering deadline, and an enforced global failed-seed policy.
-**No v2–v6 scientific result exists; nothing was executed; no push.**
+
+## P1.2-E addendum (pre-execution correction; NOT executed)
+
+Execution freeze v6 was independently found **NONEXECUTABLE** (`docs/audits/p1_2d_independent_audit.md`)
+and is SUPERSEDED / NEVER RUN. The authoritative, executable contract is now
+**prereg v7** (canonical `7fde7def…`, file `829f4105…`) + **execution contract v5**
+(canonical `b169c420…`, file `20c1e79f…`) + **execution freeze v7**
+(`switchsync-synthetic-execution-v7-freeze`). Fixes (all operational/custody; NO
+scientific change): a SINGLE pre-rename manifest+staging validation so no invalid
+manifest reaches `os.replace`; FLAT staging + a never-raising verifier; the FULL custody
+cycle inside one failure handler with `.interrupted`/`.invalid` terminal states; a truly
+common G1/G2 selection mask over a frozen candidate matrix; a frozen G0A failure
+precedence (technical failure OUTRANKS cost) with split ledger/science/state counters on
+a monotonic soft budget; full G0B/G0C failure records; one coherent no-resume policy; and
+enriched, non-overwritable failure ledgers.
+**No v2–v7 scientific result exists; nothing was executed; no push.**

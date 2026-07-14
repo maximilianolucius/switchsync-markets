@@ -103,73 +103,103 @@ def _apply_hierarchy(weak_verdict, g1s_raw, g2_raw):
     return g1s, g2
 
 
-def _select_arm(sp, sel_seeds):
-    scores = {}
-    for arm in ARM_ORDER:
-        vals = [_gamma(sp, _arm_schedule(sp, _base(sp, s), arm), s) for s in sel_seeds]
-        scores[arm] = float(np.mean(vals))
-    best = max(ARM_ORDER, key=lambda a: (scores[a], -ARM_ORDER.index(a)))  # score, canonical tie-break
-    return best, scores
-
-
-def _select_best_static(sp, sel_seeds):
-    N, N_IL, K, H = sp["N"], sp["N_IL"], sp["K"], sp["H"]
+def _candidate_set(sp, sel_seeds):
+    """FROZEN static-comparator candidate universe, built ONCE before any gamma is
+    evaluated (contract E): the union of the per-selection-seed base snapshots plus
+    the deterministic random-search subsets. Index combinatorics only (no gamma),
+    so it is well-defined regardless of which seeds later drop from the mask.
+    Canonical (sorted) ordering; the lexicographically smallest wins later ties."""
+    N, N_IL, K = sp["N"], sp["N_IL"], sp["K"]
     cand = set()
     for s in sel_seeds:
         cand.update(build_base_snapshots(N, N_IL, K, np.random.default_rng(s)))
     srng = np.random.default_rng(sp["candidate_search_seed"])
     for _ in range(sp["best_static_search"]):
         cand.add(tuple(sorted(srng.choice(N, size=N_IL, replace=False).tolist())))
-    ordered = sorted(cand)                                   # canonical ordering
-    best_subset, best_score = None, None
-    for subset in ordered:                                   # ties -> first = lexicographically smallest
-        score = float(np.mean([_gamma(sp, _static(sp, subset), s) for s in sel_seeds]))
-        if best_score is None or score > best_score + 1e-12:
-            best_subset, best_score = subset, score
-    return best_subset, best_score, len(ordered)
+    return sorted(cand)
 
 
-def _selection_mask(sp, sel_seeds):
-    """Selection seeds whose arm + probe-static gammas are all finite/computable.
-    A COMMON mask is used for arm and best-static selection so neither is chosen
-    from partial, incompatible results (contract G.1). Returns (mask, failures)."""
-    mask, failures = [], []
+def _selection_matrix(sp, sel_seeds, candidates):
+    """TRULY COMMON selection mask (contract E). For each selection seed, ATOMICALLY
+    compute EVERY quantity selection depends on: gamma for all rate arms AND gamma
+    for EVERY frozen static candidate, plus their finiteness. If ANY arm or ANY
+    candidate raises or is nonfinite, the WHOLE seed leaves the common mask, and the
+    failing seed/phase/arm-or-candidate is recorded. Arm and best-static are then
+    chosen from this cached matrix with NO recomputation. Returns
+    (mask, arm_matrix, static_matrix, failures) where arm_matrix[s][arm] and
+    static_matrix[s][candidate_index] hold the cached gammas for masked seeds."""
+    mask, arm_matrix, static_matrix, failures = [], {}, {}, []
     for s in sel_seeds:
+        failed_on = {"phase": "selection", "stage": "base"}
+        arm_vals, static_vals = {}, {}
         try:
             base = _base(sp, s)
-            vals = [_gamma(sp, _arm_schedule(sp, base, a), s) for a in ARM_ORDER]
-            vals.append(_gamma(sp, _static(sp, base[0]), s))
-            if not all(np.isfinite(v) for v in vals):
-                raise FloatingPointError("nonfinite gamma in selection")
+            for a in ARM_ORDER:
+                failed_on = {"phase": "selection", "arm": a}
+                g = _gamma(sp, _arm_schedule(sp, base, a), s)
+                if not np.isfinite(g):
+                    raise FloatingPointError(f"nonfinite arm gamma ({a})")
+                arm_vals[a] = g
+            for ci, subset in enumerate(candidates):
+                failed_on = {"phase": "selection", "candidate": list(subset)}
+                g = _gamma(sp, _static(sp, subset), s)
+                if not np.isfinite(g):
+                    raise FloatingPointError("nonfinite static candidate gamma")
+                static_vals[ci] = g
         except Exception as e:
-            failures.append(failure_record(e, s, {"phase": "selection"}))
+            failures.append(failure_record(e, s, failed_on))
             continue
         mask.append(s)
-    return mask, failures
+        arm_matrix[s], static_matrix[s] = arm_vals, static_vals
+    return mask, arm_matrix, static_matrix, failures
+
+
+def _select_arm_cached(arm_matrix, mask):
+    scores = {a: float(np.mean([arm_matrix[s][a] for s in mask])) for a in ARM_ORDER}
+    best = max(ARM_ORDER, key=lambda a: (scores[a], -ARM_ORDER.index(a)))  # score, canonical tie-break
+    return best, scores
+
+
+def _select_best_static_cached(static_matrix, mask, candidates):
+    best_subset, best_score = None, None
+    for ci, subset in enumerate(candidates):     # canonical order; ties -> lexicographically smallest
+        score = float(np.mean([static_matrix[s][ci] for s in mask]))
+        if best_score is None or score > best_score + 1e-12:
+            best_subset, best_score = subset, score
+    return best_subset, best_score, len(candidates)
 
 
 def compute(ctx):
     sp, inf, sel, ev = _cfg(ctx)
     N, N_IL, H = sp["N"], sp["N_IL"], sp["H"]
 
-    # ---- SELECTION phase (selection seeds only; capture failures, common mask) ----
-    sel_mask, sel_failures = _selection_mask(sp, sel)
-    if (len(sel) - len(sel_mask)) / len(sel) > 0.2 or not sel_mask:
+    # ---- SELECTION phase (selection seeds only; TRULY COMMON cached mask) ----
+    # Freeze the static-candidate universe FIRST, then compute one atomic per-seed
+    # matrix covering every arm AND every candidate; arm + best-static are picked
+    # from that cache with no recomputation (contract E).
+    candidates = _candidate_set(sp, sel)
+    sel_mask, arm_matrix, static_matrix, sel_failures = _selection_matrix(sp, sel, candidates)
+    n_selection_failed = len(sel) - len(sel_mask)
+    if not sel_mask or n_selection_failed / len(sel) > 0.2:
         return {"gate": GATE, "verdict": "EXECUTION_INVALID",
                 "provenance": provenance(ctx, {"selection": sel, "evaluation": ev}, sp,
-                                         ">20% selection seeds failed (frozen policy)",
+                                         "zero successful selection seeds, or >20% failed "
+                                         "(frozen policy; common cached-matrix mask)",
                                          reason_code="FAILED_RUNS", failures=sel_failures),
-                "result": {"n_selection_failed": len(sel) - len(sel_mask)}}
-    arm, arm_scores = _select_arm(sp, sel_mask)
-    best_static, best_static_score, n_candidates = _select_best_static(sp, sel_mask)
+                "result": {"n_selection_failed": n_selection_failed,
+                           "n_selection_total": len(sel),
+                           "n_static_candidates": len(candidates)}}
+    arm, arm_scores = _select_arm_cached(arm_matrix, sel_mask)
+    best_static, best_static_score, n_candidates = _select_best_static_cached(
+        static_matrix, sel_mask, candidates)
 
     # ---- EVALUATION phase (disjoint evaluation seeds) ----
     d_weak, d_strict, d_order = [], [], []
     per = {"arm_gamma": [], "static_sparse": [], "average_graph": [], "best_static_frozen": []}
     eval_failures = []
     for seed in ev:
-        base = _base(sp, seed)
         try:
+            base = _base(sp, seed)          # contract E: base construction inside the try
             arm_sched = _arm_schedule(sp, base, arm)
             inter = _arm_schedule(sp, base, "intermediate")
             assert_paired_invariants({"arm": arm_sched, "inter": inter}, N, H, N_IL)

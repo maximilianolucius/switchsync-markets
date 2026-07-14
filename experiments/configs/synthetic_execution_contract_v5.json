@@ -1,0 +1,154 @@
+{
+  "contract_name": "switchsync-synthetic-execution-contract-v5",
+  "contract_version": 5,
+  "document_kind": "EXECUTION_CONTRACT",
+  "binds_prereg": "synthetic_prereg_v7.json",
+  "binds_prereg_canonical_hash": "7fde7def521ae3dabc1ed7bac38427fccea5dea79eeb073ef407210799dbc1e7",
+  "description": "Operational grids for the v2 runners under prereg v7 (grids UNCHANGED from v3/v4; only the bound prereg canonical hash changed for P1.2-E). NO real data. NOT executed.",
+  "inference": {
+    "alpha": 0.05,
+    "std_mult": 3.0,
+    "n_boot": 2000,
+    "boot_seed": 20260713,
+    "floor_surrogate_gamma": 0.02,
+    "floor_identifiability_margin": 0.05
+  },
+  "g0a": {
+    "sizes": [
+      100,
+      200,
+      400
+    ],
+    "sigma_inter": 0.1,
+    "density_ratio": 0.25,
+    "T_swt_grid": [
+      11.0,
+      23.0,
+      50.0,
+      120.0
+    ],
+    "total_time": 4000.0,
+    "record_every": 25,
+    "chunk_steps": 5000,
+    "chaos_n_steps": 20000,
+    "chaos_transient": 3000,
+    "chaos_renorm": 5
+  },
+  "g0b": {
+    "N": 40,
+    "N_IL": 10,
+    "sigma_inter": 1.5,
+    "total_time": 800.0,
+    "record_every": 25,
+    "T_swt_grid": [
+      2.0,
+      5.0,
+      10.0,
+      20.0,
+      40.0,
+      80.0,
+      160.0,
+      300.0
+    ]
+  },
+  "g0c": {
+    "N": 2,
+    "lam_perp": 2.0,
+    "alpha": 5.0,
+    "n_steps": 40000,
+    "transient_steps": 3000,
+    "renorm_every": 5,
+    "sigma_grid": [
+      0.05,
+      0.15,
+      0.3,
+      0.5,
+      0.8
+    ],
+    "T_swt_grid": [
+      11.0,
+      25.0,
+      100.0,
+      135.0
+    ]
+  },
+  "surrogate_paired": {
+    "N": 24,
+    "N_IL": 6,
+    "K": 6,
+    "H": 240,
+    "kappa": 0.6,
+    "rho_target": 1.04,
+    "intra_coupling": 0.06,
+    "cycles_fast": 20,
+    "cycles_intermediate": 5,
+    "cycles_slow": 1,
+    "variable_dwell_multiset": [
+      8,
+      16,
+      24,
+      40,
+      56,
+      96
+    ],
+    "best_static_search": 200,
+    "neg_fraction_signed": 0.4,
+    "candidate_search_seed": 900001,
+    "g2_n_perm": 200,
+    "g2_perm_seed": 700003
+  },
+  "g4": {
+    "N": 24,
+    "N_IL": 6,
+    "kappa": 0.6,
+    "rho_target": 1.04,
+    "intra_coupling": 0.06,
+    "horizon_steps": 600,
+    "dwell_fast": 6,
+    "estimator_window": 8,
+    "obs_noise": 0.05,
+    "factor_scale": 1.0,
+    "async_variants": [
+      [
+        1,
+        1
+      ],
+      [
+        1,
+        3
+      ]
+    ]
+  },
+  "g3_stages": [
+    {
+      "name": "faithful",
+      "heterogeneity": 0.0,
+      "directed": false,
+      "signed": false
+    },
+    {
+      "name": "mild_heterogeneity",
+      "heterogeneity": 0.05,
+      "directed": false,
+      "signed": false
+    },
+    {
+      "name": "strong_heterogeneity",
+      "heterogeneity": 0.2,
+      "directed": false,
+      "signed": false
+    },
+    {
+      "name": "directed",
+      "heterogeneity": 0.05,
+      "directed": true,
+      "signed": false
+    },
+    {
+      "name": "signed",
+      "heterogeneity": 0.05,
+      "directed": false,
+      "signed": true
+    }
+  ]
+}
