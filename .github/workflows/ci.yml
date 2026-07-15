@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # full history: test_is_descendant_real_commits needs HEAD~1, which a
+          # shallow (depth-1) checkout does not provide.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
