@@ -120,6 +120,54 @@ contract v6** (canonical `6dbe79dd…`, file `80609ef5…`) + **execution freeze
 (`switchsync-synthetic-execution-v8-freeze`). v8 restores exactly the v3 tolerances
 `{sync_threshold_E12: 0.02, sync_tail_frac: 0.25}` and changes NOTHING else scientific.
 A single cheap-suite one-shot (G0B/G0C/G1G2/G3/G4; G0A NOT_RUN) is authorized under
-P1.2-F and executed against an EXTERNAL run-dir; results are sealed OUTSIDE the repo and
-NOT committed.
-**No v2–v7 scientific result exists; the cheap-suite result is external; no push.**
+P1.2-F and executed against an EXTERNAL run-dir; results are sealed OUTSIDE the repo.
+**No v2–v7 scientific result exists; no push.**
+
+## P1.3 — FORMAL SCIENTIFIC CLOSURE (authoritative)
+
+The P1.2-F cheap-suite one-shot (attempt `1baa47da06fede2a`, freeze v8 `2991e064…`,
+zero failures/nonfinite/dropped seeds) was independently audited and ACCEPTED. Its
+artifacts are committed byte-for-byte under `results/p1_2f_cheap_suite/` (registry
+`results/RESULTS_REGISTRY.json`, tag `switchsync-synthetic-results-v2`). The exact
+preregistered conclusions:
+
+- **G0B PASS is a calibrated qualitative demonstration only** (σ_12=1.5, N=40) — never
+  an exact reproduction, and no N-dependence claim.
+- **G0C is INCONCLUSIVE:** transverse contraction exists (Ψ<0 across the grid) but no
+  switching-time dependence was resolved on the frozen MSF grid (onset σ = 0.05 at
+  every T_swt).
+- **G1-weak is INCONCLUSIVE(TIE):** 8/8 positive paired differences (sign test
+  p = 0.0078), but the mean effect (+0.042) is below the preregistered effect band
+  (0.067). Directional evidence; failed the magnitude criterion.
+- **G1-strict and G2 are NOT_INTERPRETABLE** by the frozen hierarchy (G1-weak did not
+  PASS).
+- **Diagnostic** G1-strict differences are negative in all eight evaluation seeds
+  (mean −0.0046): switching did not beat max(average graph, best-of-frozen-candidate
+  static). This observation is and must remain **explicitly diagnostic**, never a gate
+  outcome.
+- **G3 is INCONCLUSIVE:** consistently positive directions in every stage, but none
+  exceeds its frozen effect band; the required stages (faithful, mild_heterogeneity)
+  did not PASS.
+- **G4 FAILS:** precision and recall (≈0.35) are far below the 0.6 bar; asynchrony/LOCF
+  collapses the contraction correlation from 0.948 to 0.010 (Epps-like degradation, not
+  a causal Epps demonstration).
+- **No predictive or operational market study is justified.** No trading signal,
+  backtest, PnL, Sharpe or deployment claim exists.
+- **No real market data was used.** Everything is synthetic.
+
+**Closure statement:**
+
+> “SwitchSync Markets demonstrates the synchronization mechanism in a calibrated
+> synthetic setting but does not establish an advantage beyond aggregate connectivity,
+> a robust temporal-order effect, or reliable observational identifiability. The
+> financial translation is therefore not supported for empirical or operational
+> development under the preregistered criteria. This does not refute Engel’s
+> mathematical results.”
+
+**G0A decision (permanent):** `NOT_RUN — outside the cheap-suite scope and unnecessary
+for the financial-translation decision.` An exact paper-scale reproduction (Eser,
+Medeiros, Riza & Engel 2025 at N∈{100,200,400}, σ_12=0.1) could be conducted only as a
+separate replication project with its own authorization and budget. Whatever its
+outcome, it cannot rescue G1–G4 (which concern financial translation, order effects and
+identifiability, not the mechanism's existence) and cannot authorize real-market
+research under the closed preregistration.
