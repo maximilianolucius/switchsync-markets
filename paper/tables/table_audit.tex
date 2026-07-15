@@ -1,0 +1,31 @@
+% Audit / reproducibility identifiers (Appendix A). All values verified by an
+% independent audit of the sealed attempt.
+\begin{table}[h]
+\centering
+\caption{Immutable identifiers of the preregistration, the execution freeze and the
+sealed result. Earlier execution freezes v2--v7 were each found non-executable by
+independent audit and were \emph{never run}; no result predates the attempt below.}
+\label{tab:audit}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{@{}ll@{}}
+\toprule
+Object & SHA-256 / identifier \\
+\midrule
+prereg v8 (canonical) & \texttt{a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9} \\
+prereg v8 (file) & \texttt{896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e} \\
+execution contract v6 (canonical) & \texttt{6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8} \\
+execution contract v6 (file) & \texttt{80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb} \\
+execution freeze v8 (content hash) & \texttt{2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d} \\
+freeze commit (= runtime HEAD) & \texttt{5ca40c7da87f583c7cea1cefd00cc978c3731d98} \\
+result-custody commit & \texttt{48339e47d3a0911949cf25c83a50e63fc9572aa5} \\
+campaign / attempt id & \texttt{44be3a5d07e67b5e} / \texttt{1baa47da06fede2a} \\
+manifest content hash (= SEALED) & \texttt{4e029d814437695d99c4b5cc62cbe3cf94ebd0e46c6e9ae51d54cc5f28f3c33d} \\
+\midrule
+\texttt{g0b\_calibrated\_v2.json} & \texttt{d592b75d59b6e50c51ec6263c0a8469654651e0ef247fd2fadd3cf5adad4d4e5} \\
+\texttt{g0c\_msf\_v2.json} & \texttt{150a53dc42236742d347012704a00a4d2e1db52d99bb800341bbc3ec6de484d0} \\
+\texttt{g1\_g2\_paired\_v2.json} & \texttt{b6242cd72510ce6d8b0daa5edba31b1c124f3fa519eae92ac0a408f06decbce0} \\
+\texttt{g3\_robustness\_v2.json} & \texttt{2f16a4578c5b48cbb8621455b5a37042ec615a7127c9d709acb43ab1a3414964} \\
+\texttt{g4\_identifiability\_v2.json} & \texttt{bd148d1ed23ba057df41dedfbdb7414b7d450a7f5c28b59617e354d5bbb597e6} \\
+\bottomrule
+\end{tabular}}
+\end{table}

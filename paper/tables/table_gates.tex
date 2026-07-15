@@ -1,0 +1,27 @@
+% Required preregistered results table. Source: frozen JSON reports of sealed
+% attempt 1baa47da06fede2a (freeze v8). Byte hashes in Appendix A.
+\begin{table}[t]
+\centering
+\caption{Preregistered gate outcomes of the single authorized cheap-suite run
+(attempt \texttt{1baa47da06fede2a}, execution freeze v8). ``Confirmatory'' outcomes
+follow the frozen decision contract of Section~\ref{sec:contract}; quantities marked
+``diagnostic'' are reported but are, by the preregistered hierarchy, not gate
+outcomes. Zero technical failures, non-finite values or dropped seeds occurred in any
+gate.}
+\label{tab:gates}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{@{}llll@{}}
+\toprule
+Gate & Question (frozen) & Verdict & Status \\
+\midrule
+G0A & exact paper-scale reproduction & NOT\_RUN & outside cheap-suite scope \\
+G0B & calibrated small-$N$ demonstration & \textbf{PASS} & confirmatory (demonstration only) \\
+G0C & minimal MSF $T_{\mathrm{swt}}$-dependence & INCONCLUSIVE & confirmatory \\
+G1-weak & switching beats equal-density static & INCONCLUSIVE (TIE) & confirmatory \\
+G1-strict & beats average graph and best frozen static & NOT\_INTERPRETABLE & diagnostic only \\
+G2 & temporal order beyond the multiset & NOT\_INTERPRETABLE & diagnostic only \\
+G3 & robustness of the weak advantage & INCONCLUSIVE & confirmatory \\
+G4 & observational identifiability & \textbf{FAIL} & confirmatory \\
+\bottomrule
+\end{tabular}}
+\end{table}

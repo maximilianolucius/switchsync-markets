@@ -1,0 +1,242 @@
+\begin{thebibliography}{32}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Alexander et~al.(2020)Alexander, Choi, Park, and
+  Sohn]{alexander2020bitmex}
+C.~Alexander, J.~Choi, H.~Park, and S.~Sohn.
+\newblock Bitmex bitcoin derivatives: Price discovery, informational
+  efficiency, and hedging effectiveness.
+\newblock \emph{Journal of Futures Markets}, 40:\penalty0 23, 2020.
+\newblock \doi{10.1002/fut.22050}.
+
+\bibitem[Barigozzi and Hallin(2017)]{barigozzi2017network}
+M.~Barigozzi and M.~Hallin.
+\newblock A network analysis of the volatility of high-dimensional financial
+  series.
+\newblock \emph{Journal of the Royal Statistical Society: Series C},
+  66:\penalty0 581, 2017.
+\newblock \doi{10.1111/rssc.12177}.
+
+\bibitem[Baur and Dimpfl(2019)]{baur2019price}
+D.~G. Baur and T.~Dimpfl.
+\newblock Price discovery in bitcoin spot or futures?
+\newblock \emph{Journal of Futures Markets}, 39:\penalty0 803, 2019.
+\newblock \doi{10.1002/fut.22004}.
+
+\bibitem[Belykh et~al.(2004)Belykh, Belykh, and Hasler]{belykh2004blinking}
+I.~V. Belykh, V.~N. Belykh, and M.~Hasler.
+\newblock Blinking model and synchronization in small-world networks with a
+  time-varying coupling.
+\newblock \emph{Physica D}, 195:\penalty0 188, 2004.
+\newblock \doi{10.1016/j.physd.2004.03.013}.
+
+\bibitem[Billio et~al.(2012)Billio, Getmansky, Lo, and
+  Pelizzon]{billio2012econometric}
+M.~Billio, M.~Getmansky, A.~W. Lo, and L.~Pelizzon.
+\newblock Econometric measures of connectedness and systemic risk in the
+  finance and insurance sectors.
+\newblock \emph{Journal of Financial Economics}, 104:\penalty0 535, 2012.
+\newblock \doi{10.1016/j.jfineco.2011.12.010}.
+
+\bibitem[Boccaletti et~al.(2006)Boccaletti, Hwang, Chavez, Amann, Kurths, and
+  Pecora]{boccaletti2006commutative}
+S.~Boccaletti, D.-U. Hwang, M.~Chavez, A.~Amann, J.~Kurths, and L.~M. Pecora.
+\newblock Synchronization in dynamical networks: Evolution along commutative
+  graphs.
+\newblock \emph{Physical Review E}, 74:\penalty0 016102, 2006.
+\newblock \doi{10.1103/PhysRevE.74.016102}.
+
+\bibitem[Diebold and Yilmaz(2009)]{diebold2009measuring}
+F.~X. Diebold and K.~Yilmaz.
+\newblock Measuring financial asset return and volatility spillovers, with
+  application to global equity markets.
+\newblock \emph{The Economic Journal}, 119:\penalty0 158, 2009.
+\newblock \doi{10.1111/j.1468-0297.2008.02208.x}.
+
+\bibitem[Diebold and Yilmaz(2014)]{diebold2014network}
+F.~X. Diebold and K.~Yilmaz.
+\newblock On the network topology of variance decompositions: Measuring the
+  connectedness of financial firms.
+\newblock \emph{Journal of Econometrics}, 182:\penalty0 119, 2014.
+\newblock \doi{10.1016/j.jeconom.2014.04.012}.
+
+\bibitem[Engle(2002)]{engle2002dynamic}
+R.~Engle.
+\newblock Dynamic conditional correlation.
+\newblock \emph{Journal of Business \& Economic Statistics}, 20:\penalty0 339,
+  2002.
+\newblock \doi{10.1198/073500102288618487}.
+
+\bibitem[Epps(1979)]{epps1979comovements}
+T.~W. Epps.
+\newblock Comovements in stock prices in the very short run.
+\newblock \emph{Journal of the American Statistical Association}, 74:\penalty0
+  291, 1979.
+\newblock \doi{10.1080/01621459.1979.10482508}.
+
+\bibitem[Eser et~al.(2021)Eser, Medeiros, Riza, and Zakharova]{eser2021edges}
+M.~C. Eser, E.~S. Medeiros, M.~Riza, and A.~Zakharova.
+\newblock Edges of inter-layer synchronization in multilayer networks with
+  time-switching links.
+\newblock \emph{Chaos}, 31:\penalty0 103119, 2021.
+\newblock \doi{10.1063/5.0065310}.
+
+\bibitem[Eser et~al.(2025)Eser, Medeiros, Riza, and Engel]{eser2025switching}
+M.~C. Eser, E.~S. Medeiros, M.~Riza, and M.~Engel.
+\newblock Dynamic link switching induces stable synchronized states in sparse
+  networks, 2025.
+\newblock URL \url{https://arxiv.org/abs/2507.08007}.
+\newblock arXiv:2507.08007 [nlin.AO].
+
+\bibitem[Fan et~al.(2013)Fan, Liao, and Mincheva]{fan2013large}
+J.~Fan, Y.~Liao, and M.~Mincheva.
+\newblock Large covariance estimation by thresholding principal orthogonal
+  complements.
+\newblock \emph{Journal of the Royal Statistical Society: Series B},
+  75:\penalty0 603, 2013.
+\newblock \doi{10.1111/rssb.12016}.
+
+\bibitem[Forbes and Rigobon(2002)]{forbes2002no}
+K.~J. Forbes and R.~Rigobon.
+\newblock No contagion, only interdependence: Measuring stock market
+  comovements.
+\newblock \emph{The Journal of Finance}, 57:\penalty0 2223, 2002.
+\newblock \doi{10.1111/0022-1082.00494}.
+
+\bibitem[Ghosh et~al.(2022)Ghosh, Frasca, Rizzo, Majhi, Rakshit,
+  Alfaro-Bittner, and Boccaletti]{ghosh2022synchronized}
+D.~Ghosh, M.~Frasca, A.~Rizzo, S.~Majhi, S.~Rakshit, K.~Alfaro-Bittner, and
+  S.~Boccaletti.
+\newblock The synchronized dynamics of time-varying networks.
+\newblock \emph{Physics Reports}, 949:\penalty0 1, 2022.
+\newblock \doi{10.1016/j.physrep.2021.10.006}.
+
+\bibitem[Gonzalo and Granger(1995)]{gonzalo1995estimation}
+J.~Gonzalo and C.~W.~J. Granger.
+\newblock Estimation of common long-memory components in cointegrated systems.
+\newblock \emph{Journal of Business \& Economic Statistics}, 13:\penalty0 27,
+  1995.
+\newblock \doi{10.1080/07350015.1995.10524576}.
+
+\bibitem[Hasbrouck(1995)]{hasbrouck1995one}
+J.~Hasbrouck.
+\newblock One security, many markets: Determining the contributions to price
+  discovery.
+\newblock \emph{The Journal of Finance}, 50:\penalty0 1175, 1995.
+\newblock \doi{10.1111/j.1540-6261.1995.tb04054.x}.
+
+\bibitem[Hasler et~al.(2013)Hasler, Belykh, and Belykh]{hasler2013dynamics}
+M.~Hasler, V.~Belykh, and I.~Belykh.
+\newblock Dynamics of stochastically blinking systems. part i: Finite time
+  properties.
+\newblock \emph{SIAM Journal on Applied Dynamical Systems}, 12:\penalty0 1007,
+  2013.
+\newblock \doi{10.1137/120893409}.
+
+\bibitem[Hayashi and Yoshida(2005)]{hayashi2005covariance}
+T.~Hayashi and N.~Yoshida.
+\newblock On covariance estimation of non-synchronously observed diffusion
+  processes.
+\newblock \emph{Bernoulli}, 11:\penalty0 359, 2005.
+\newblock \doi{10.3150/bj/1116340299}.
+
+\bibitem[Holme and Saram{\"a}ki(2012)]{holme2012temporal}
+P.~Holme and J.~Saram{\"a}ki.
+\newblock Temporal networks.
+\newblock \emph{Physics Reports}, 519:\penalty0 97, 2012.
+\newblock \doi{10.1016/j.physrep.2012.03.001}.
+
+\bibitem[Jadbabaie et~al.(2003)Jadbabaie, Lin, and
+  Morse]{jadbabaie2003coordination}
+A.~Jadbabaie, J.~Lin, and A.~S. Morse.
+\newblock Coordination of groups of mobile autonomous agents using nearest
+  neighbor rules.
+\newblock \emph{IEEE Transactions on Automatic Control}, 48:\penalty0 988,
+  2003.
+\newblock \doi{10.1109/TAC.2003.812781}.
+
+\bibitem[Jardon-Kojakhmetov et~al.(2024)Jardon-Kojakhmetov, Kuehn, and
+  Longo]{jardon2024persistent}
+H.~Jardon-Kojakhmetov, C.~Kuehn, and I.~P. Longo.
+\newblock Persistent synchronization of heterogeneous networks with
+  time-dependent linear diffusive coupling.
+\newblock \emph{SIAM Journal on Applied Dynamical Systems}, 23:\penalty0 1540,
+  2024.
+\newblock \doi{10.1137/23M1602024}.
+
+\bibitem[Kohar et~al.(2014)Kohar, Ji, Choudhary, Sinha, and
+  Kurths]{kohar2014synchronization}
+V.~Kohar, P.~Ji, A.~Choudhary, S.~Sinha, and J.~Kurths.
+\newblock Synchronization in time-varying networks.
+\newblock \emph{Physical Review E}, 90:\penalty0 022812, 2014.
+\newblock \doi{10.1103/PhysRevE.90.022812}.
+
+\bibitem[Moreau(2005)]{moreau2005stability}
+L.~Moreau.
+\newblock Stability of multiagent systems with time-dependent communication
+  links.
+\newblock \emph{IEEE Transactions on Automatic Control}, 50:\penalty0 169,
+  2005.
+\newblock \doi{10.1109/TAC.2004.841888}.
+
+\bibitem[Olfati-Saber and Murray(2004)]{olfatisaber2004consensus}
+R.~Olfati-Saber and R.~M. Murray.
+\newblock Consensus problems in networks of agents with switching topology and
+  time-delays.
+\newblock \emph{IEEE Transactions on Automatic Control}, 49:\penalty0 1520,
+  2004.
+\newblock \doi{10.1109/TAC.2004.834113}.
+
+\bibitem[Pecora and Carroll(1990)]{pecora1990synchronization}
+L.~M. Pecora and T.~L. Carroll.
+\newblock Synchronization in chaotic systems.
+\newblock \emph{Physical Review Letters}, 64:\penalty0 821, 1990.
+\newblock \doi{10.1103/PhysRevLett.64.821}.
+
+\bibitem[Pecora and Carroll(1998)]{pecora1998master}
+L.~M. Pecora and T.~L. Carroll.
+\newblock Master stability functions for synchronized coupled systems.
+\newblock \emph{Physical Review Letters}, 80:\penalty0 2109, 1998.
+\newblock \doi{10.1103/PhysRevLett.80.2109}.
+
+\bibitem[Ren and Beard(2005)]{renbeard2005consensus}
+W.~Ren and R.~W. Beard.
+\newblock Consensus seeking in multiagent systems under dynamically changing
+  interaction topologies.
+\newblock \emph{IEEE Transactions on Automatic Control}, 50:\penalty0 655,
+  2005.
+\newblock \doi{10.1109/TAC.2005.846556}.
+
+\bibitem[Scholes and Williams(1977)]{scholes1977estimating}
+M.~Scholes and J.~Williams.
+\newblock Estimating betas from nonsynchronous data.
+\newblock \emph{Journal of Financial Economics}, 5:\penalty0 309, 1977.
+\newblock \doi{10.1016/0304-405X(77)90041-1}.
+
+\bibitem[Stilwell et~al.(2006)Stilwell, Bollt, and
+  Roberson]{stilwell2006sufficient}
+D.~J. Stilwell, E.~M. Bollt, and D.~G. Roberson.
+\newblock Sufficient conditions for fast switching synchronization in
+  time-varying network topologies.
+\newblock \emph{SIAM Journal on Applied Dynamical Systems}, 5:\penalty0 140,
+  2006.
+\newblock \doi{10.1137/050625229}.
+
+\bibitem[Zhang and Strogatz(2021)]{zhang2021designing}
+Y.~Zhang and S.~H. Strogatz.
+\newblock Designing temporal networks that synchronize under resource
+  constraints.
+\newblock \emph{Nature Communications}, 12:\penalty0 3273, 2021.
+\newblock \doi{10.1038/s41467-021-23446-9}.
+
+\bibitem[Zhou et~al.(2019)Zhou, Guo, Liu, Lai, and Lin]{zhou2019random}
+J.~Zhou, X.~Guo, Z.~Liu, Y.-C. Lai, and W.~Lin.
+\newblock Random temporal connections promote network synchronization.
+\newblock \emph{Physical Review E}, 100:\penalty0 032302, 2019.
+\newblock \doi{10.1103/PhysRevE.100.032302}.
+
+\end{thebibliography}

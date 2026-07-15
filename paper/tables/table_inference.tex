@@ -1,0 +1,29 @@
+% Decision statistics, transcribed from the frozen JSON reports (attempt
+% 1baa47da06fede2a). band = max(3 * sample sd (ddof=1), preregistered floor).
+\begin{table}[t]
+\centering
+\caption{Paired decision statistics ($n=8$ evaluation seeds per test; exact
+two-sided sign test on non-zero differences; effect band
+$b=\max(3\,\hat{\sigma}_{\mathrm{ddof}=1},\,\text{floor})$; floors: $0.02$ for
+surrogate $\gamma$, $0.05$ for the identifiability margin). Rows marked
+$\dagger$ are diagnostic (NOT\_INTERPRETABLE under the frozen hierarchy).}
+\label{tab:inference}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{@{}lrrrrl@{}}
+\toprule
+Test & mean $\bar d$ & band $b$ & signs $(+/-)$ & $p$ & verdict \\
+\midrule
+G1-weak: $\gamma_{\mathrm{arm}}-\gamma_{\mathrm{static}}$ & $+0.0420$ & $0.0666$ & $8/0$ & $0.0078$ & INCONCLUSIVE (TIE) \\
+G1-strict$^\dagger$: $\gamma_{\mathrm{arm}}-\max(\gamma_{\mathrm{avg}},\gamma_{\mathrm{best}})$ & $-0.0046$ & $0.0200$ & $0/8$ & $0.0078$ & (diagnostic) \\
+G2$^\dagger$: $\gamma_{\mathrm{ord}}-\mathrm{med}(\gamma_{\mathrm{perm}})$ & $+0.0030$ & $0.0200$ & $7/1$ & $0.0703$ & (diagnostic) \\
+\midrule
+G3 faithful & $+0.0492$ & $0.0789$ & $8/0$ & $0.0078$ & INCONCLUSIVE (TIE) \\
+G3 mild heterogeneity & $+0.0455$ & $0.1715$ & $8/0$ & $0.0078$ & INCONCLUSIVE (TIE) \\
+G3 strong heterogeneity & $+0.0631$ & $0.2984$ & $6/2$ & $0.2891$ & INCONCLUSIVE (NOT\_SIG.) \\
+G3 directed & $+0.0603$ & $0.1006$ & $8/0$ & $0.0078$ & INCONCLUSIVE (TIE) \\
+G3 signed & $+0.0467$ & $0.0799$ & $8/0$ & $0.0078$ & INCONCLUSIVE (TIE) \\
+\midrule
+G4 beats-baseline margin & $+0.1625$ & $0.0646$ & $8/0$ & $0.0078$ & PASS (condition; gate FAILs on P/R) \\
+\bottomrule
+\end{tabular}}
+\end{table}
