@@ -1,14 +1,27 @@
 cff-version: 1.2.0
-message: "If you use this repository, please cite it as below. This is synthetic-only research; results are not evidence about real markets."
-title: "SwitchSync Markets: can dynamic link switching induce synchronization in sparse financial networks? (synthetic P0-P1)"
+message: >-
+  If you use this repository, please cite it as below. This is synthetic-only,
+  preregistered research; results are not evidence about real markets.
+  AUTHOR-METADATA BLOCKER: the human author's name/affiliation/email/ORCID have
+  not yet been provided and are deliberately not fabricated
+  (PAPER_RC_BLOCKED_ON_AUTHOR_METADATA_AND_LICENSE); the repository license is
+  also unresolved (docs/LICENSE_BLOCKER.md).
+title: "SwitchSync Markets: a preregistered synthetic stress test of switching synchronization as a financial-network mechanism (P0-P1.3, closed)"
 abstract: >-
-  A synthetic, pre-registered study auditing whether the link-switching
+  A synthetic, preregistered study auditing whether the link-switching
   synchronization mechanism of Eser, Medeiros, Riza & Engel (arXiv:2507.08007)
-  admits a mathematically faithful and empirically identifiable translation to
-  financial temporal networks. No real market data is used.
+  admits a mathematically faithful and observationally identifiable translation
+  to financial temporal networks. The single authorized cheap-suite execution
+  (sealed attempt 1baa47da06fede2a, execution freeze v8) closed the study: G0B
+  PASS (calibrated qualitative demonstration only), G0C/G1-weak/G3 INCONCLUSIVE
+  (G1-strict and G2 formally NOT_INTERPRETABLE), G4 FAIL. The financial
+  translation is not supported for empirical or operational development under
+  the preregistered criteria; this does not refute the seed paper's
+  mathematics. No real market data were used. An arXiv-format manuscript is
+  under paper/ (release candidate; blocked on author metadata and license).
 type: software
 authors:
-  - name: "SwitchSync Markets project (repository owner)"
+  - name: "SwitchSync Markets project (repository owner; human author metadata pending — placeholder, not a personal identity)"
     website: "https://github.com/maximilianolucius/switchsync-markets"
 repository-code: "https://github.com/maximilianolucius/switchsync-markets"
 keywords:
@@ -16,9 +29,11 @@ keywords:
   - temporal networks
   - link switching
   - master stability function
+  - preregistration
   - financial networks
+  - identifiability
   - FitzHugh-Nagumo
-version: "p1-v2-prereg"
+version: "p1.3-results-v2"
 references:
   - type: article
     authors:
@@ -31,8 +46,8 @@ references:
       - family-names: Engel
         given-names: Maximilian
     title: "Dynamic link switching induces stable synchronized states in sparse networks"
-    year: 2026
-    notes: "arXiv:2507.08007v2 (nlin.AO). The inspiring paper audited by this project."
+    year: 2025
+    notes: "arXiv:2507.08007 (nlin.AO). The seed paper audited by this project."
   - type: article
     authors:
       - family-names: Zhang

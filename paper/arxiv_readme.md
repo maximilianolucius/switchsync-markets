@@ -47,10 +47,21 @@ fonts; figures embed TrueType (fonttype 42).
 All numbers in the paper come from the sealed attempt `1baa47da06fede2a`
 (execution freeze v8, content hash `2991e064…`), committed byte-for-byte under
 `results/p1_2f_cheap_suite/` (tag `switchsync-synthetic-results-v2`) and verified
-by an independent audit. Superseded v1 reports were **not** used anywhere.
+by a separate post-execution artifact audit. Superseded v1 reports were **not**
+used anywhere. A P1.3-A recomputation gate re-derived every decision statistic
+(mean, ddof-1 sd, effect band, exact sign test) from the sealed
+`paired_differences` arrays: 34/34 MATCH (`docs/audits/p1_3_manuscript_audit.md`).
 
-## Before submission (manual steps)
+## Status: RELEASE CANDIDATE — NOT SUBMISSION-READY
 
-- Replace the project byline with the personal author name(s) and affiliation.
-- Choose a license for the arXiv submission (repository license selection is
-  still pending — `docs/LICENSE_BLOCKER.md`; do not resolve unilaterally).
+**`PAPER_RC_BLOCKED_ON_AUTHOR_METADATA_AND_LICENSE`**
+
+Human inputs still required (deliberately NOT fabricated):
+
+1. Author name(s), affiliation, contact email, optional ORCID — currently a
+   marked placeholder in `main.tex` (`\author`) and in the PDF metadata
+   (`pdfauthor`).
+2. arXiv submission license AND repository license
+   (`docs/LICENSE_BLOCKER.md`; not resolved unilaterally).
+
+Until both are provided, do not submit and do not create the final paper tag.

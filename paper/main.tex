@@ -9,6 +9,13 @@
 \usepackage{xcolor}
 \usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
 
+\hypersetup{
+  pdftitle={SwitchSync Markets: A Preregistered Synthetic Stress Test of Switching Synchronization as a Financial-Network Mechanism},
+  pdfauthor={AUTHOR METADATA PENDING (placeholder; human author not yet provided)},
+  pdfsubject={Preregistered, fully synthetic stress test of switching-induced synchronization as a financial-network mechanism; confirmatory outcomes inconclusive or failed; no real market data},
+  pdfkeywords={synchronization, temporal networks, link switching, master stability function, preregistration, financial networks, identifiability, FitzHugh--Nagumo}
+}
+
 \graphicspath{{figures/}}
 
 \newcommand{\Tswt}{T_{\mathrm{swt}}}
@@ -17,9 +24,13 @@
 \title{SwitchSync Markets: A Preregistered Synthetic Stress Test of Switching
 Synchronization as a Financial-Network Mechanism}
 
-\author{SwitchSync Markets Project\thanks{Repository:
+\author{[AUTHOR NAME PENDING --- PLACEHOLDER]\thanks{PLACEHOLDER: the human
+author's name, affiliation, contact email and (optional) ORCID have not yet
+been provided and are deliberately \emph{not} fabricated; this release
+candidate is blocked on that metadata and on the license choice
+(\texttt{PAPER\_RC\_BLOCKED\_ON\_AUTHOR\_METADATA\_AND\_LICENSE}). Repository:
 \texttt{switchsync-markets}. This is a fully synthetic, preregistered study;
-no real market data were used at any stage. Contact via the repository.}}
+no real market data were used at any stage.}}
 
 \date{July 2026}
 
@@ -43,9 +54,10 @@ switching-versus-static advantage was directionally consistent (8/8 positive
 paired differences, $p=0.0078$) but below the preregistered magnitude band
 (INCONCLUSIVE/TIE); the strict comparison against the average graph and the
 best frozen static comparator is not interpretable under the frozen hierarchy,
-with diagnostically negative differences in all eight seeds; no temporal-order
-effect was resolved; robustness stages never exceeded their bands; and
-observational identifiability failed outright (precision and recall
+with diagnostically negative differences in all eight seeds. Because G1-weak
+did not pass, G2 was formally NOT\_INTERPRETABLE; its diagnostic order
+statistic was non-significant. Robustness stages never exceeded their bands,
+and observational identifiability failed outright (precision and recall
 $\approx0.35$ against a 0.6 bar), with asynchronous, last-observation-carried-forward
 sampling collapsing the contraction correlation from $0.948$ to $0.010$
 (an Epps-like degradation \citep{epps1979comovements}). We conclude that the
@@ -59,10 +71,10 @@ financial data. No real market data were used.
 \section{Introduction}
 \label{sec:intro}
 
-Eser, Medeiros, Riza and Engel recently showed that switching a sparse set of
-inter-layer links --- rather than keeping them fixed --- can stabilize
-inter-layer synchronization in two-layer networks of chaotic FitzHugh--Nagumo
-oscillators, with faster switching more effective
+In a recent arXiv preprint, Eser, Medeiros, Riza and Engel showed that
+switching a sparse set of inter-layer links --- rather than keeping them fixed
+--- can stabilize inter-layer synchronization in two-layer networks of chaotic
+FitzHugh--Nagumo oscillators, with faster switching more effective
 \citep{eser2025switching,eser2021edges}. The mechanism is attractive to a
 financial modeler: markets trade the \emph{same} economic asset on multiple
 venues; the cross-venue ``links'' (arbitrage channels, shared market makers,
@@ -159,7 +171,7 @@ fail without contradicting the seed mathematics:
   \emph{beyond} the time-averaged connectivity; otherwise standard aggregate
   connectedness measures \citep{diebold2009measuring,diebold2014network,engle2002dynamic}
   already capture everything, and correlation-based ``regime'' readings risk
-  the classic interdependence/heteroskedasticity confound
+  the classic confound between interdependence and heteroskedasticity
   \citep{forbes2002no}.
   \item \textbf{Identifiability:} the active channel set must be recoverable
   from observed prices, after removing common factors
@@ -221,9 +233,10 @@ coupling angle $\phi=\pi/2-0.1$, intra-layer coupling $\sigma_{\mathrm{intra}}=0
 nearest-neighbor ring) are coupled through a diffusive inter-layer term of
 strength $\sigma_{12}$ on a switching subset of $\NIL=N/4$ mirror pairs,
 re-drawn uniformly at random every $\Tswt$ time units (RK4, $\mathrm{d}t=0.01$).
-Synchronization is declared when the tail time-average (final 25\%) of the
-inter-layer error $E_{12}$ falls below $0.02$; both tolerances were frozen in
-the preregistration. G0B uses $N=40$, $\sigma_{12}=1.5$, total time $800$,
+Synchronization is declared by a \emph{deterministic} per-seed criterion: the
+tail time-average (final 25\%) of the inter-layer error $E_{12}$ must fall
+below the frozen threshold $0.02$ (this threshold is not an effect-band floor;
+see Section~\ref{sec:contract}). G0B uses $N=40$, $\sigma_{12}=1.5$, total time $800$,
 $\Tswt\in\{2,\dots,300\}$, five seeds per cell.
 
 \paragraph{Minimal MSF system (G0C).}
@@ -281,14 +294,19 @@ dropped and disclosed):
   \emph{can} reach significance);
   \item a preregistered \emph{effect band}
   $b=\max\!\big(3\,\hat{\sigma}_{\mathrm{ddof}=1},\ \text{floor}\big)$, with
-  frozen floors ($0.02$ for surrogate $\gamma$ and FHN $E_{12}$; $0.05$ for
-  the identifiability margin);
+  frozen floors: $0.02$ for paired differences of the surrogate contraction
+  rate $\gamma$, and $0.05$ for the identifiability margin over the baseline
+  (G4);
   \item decision: if $p\ge\alpha$ $\to$ INCONCLUSIVE (NOT\_SIGNIFICANT); else
   if $\bar d> b$ $\to$ PASS; else if $\bar d<-b$ $\to$ FAIL; else
   $\to$ INCONCLUSIVE (TIE).
 \end{enumerate}
-A bootstrap interval (2{,}000 resamples, frozen seed) is reported as a
-\emph{descriptor only} and plays no role in decisions. A global failed-seed
+The G0B synchronization criterion (tail-averaged $E_{12}<0.02$) is a
+\emph{deterministic threshold} applied per seed, not an effect-band floor, and
+plays no role in the paired rule; the two $0.02$ values are numerically equal
+but contractually distinct objects. A bootstrap interval (2{,}000 resamples,
+frozen seed) is reported as a \emph{descriptor only} and plays no role in
+decisions. A global failed-seed
 policy invalidates any cell with more than 20\% technical failures; the
 executed run had \textbf{zero} failures, non-finite values or dropped seeds.
 The hierarchy is frozen: G1-strict and G2 are interpretable only if G1-weak
@@ -314,8 +332,9 @@ Table~\ref{tab:inference} lists every decision statistic.
 
 \paragraph{G0B: PASS (confirmatory; calibrated demonstration only).}
 All fast cells ($\Tswt\le10$) synchronize (fraction $1.0$) and all slow cells
-($\Tswt\ge160$) do not (fraction $0.2$), with a monotone descent in between
-(Table~\ref{tab:g0b}, Figure~\ref{fig:g0b}). Five of five seeds succeeded in
+($\Tswt\ge160$) do not (fraction $0.2$), with a non-increasing transition in
+between ($1.0\to1.0\to0.6\to0.2$ for $\Tswt=20,40,80,160$; Table~\ref{tab:g0b},
+Figure~\ref{fig:g0b}). Five of five seeds succeeded in
 every cell. This demonstrates the switching-synchronization mechanism in a
 calibrated small-$N$ setting; it is \emph{not} an exact reproduction of the
 paper regime and supports no claim about the $N$-dependence of the switching
@@ -424,7 +443,7 @@ G1--G4 (which concern translation, order effects and identifiability, not the
 mechanism's existence) and cannot authorize real-market research under the
 closed preregistration.
 
-\section{Why Aggregate Connectivity Dominates the Interpretation}
+\section{Why the Results Favor an Aggregate-Connectivity Interpretation}
 \label{sec:aggregate}
 
 The pattern of outcomes is exactly what fast-switching averaging theory
@@ -461,10 +480,11 @@ ours did not.
 \section{Observational Identifiability and Asynchrony}
 \label{sec:identifiability}
 
-Even in the most favorable conditions finance can never offer --- known
-synthetic dynamics, same-realization ground truth, a factor-free estimator by
-construction, and synchronous noise-controlled observations --- channel-set
-recovery reached precision and recall of only $0.353$. Beating the
+Under synthetic conditions more favorable than those normally available in
+empirical finance --- known dynamics, same-realization ground truth, a
+factor-free estimator by construction, and synchronous noise-controlled
+observations --- channel-set recovery reached precision and recall of only
+$0.353$. Beating the
 factor-confounded baseline (margin $+0.162$; the baseline's precision is
 $0.190$) confirms that venue differencing removes the common factor, in the
 spirit of factor-removal approaches
@@ -529,14 +549,14 @@ identified by an authorization token recorded only as its SHA-256, producing
 attempt \texttt{1baa47da06fede2a};
 (iv) a sealed attempt directory whose manifest inventories every artifact by
 size and SHA-256 and whose seal equals the manifest content hash;
-(v) an independent audit that reconstructed the package and recomputed all
-identities, hashes and decision statistics exactly;
+(v) a separate post-execution artifact audit that reconstructed the package
+and recomputed all identities, hashes and decision statistics exactly;
 (vi) byte-for-byte custody of the sealed outputs in the repository under an
 annotated tag, distinct from the execution freeze commit.
 Every figure and table in this paper is generated from the frozen JSON
 reports without re-running any simulation. Earlier execution freezes v2--v7
-were each found non-executable by independent audits and were \emph{never
-run}; consequently no result predates the sealed attempt. All identifiers
+were each found non-executable by separate pre-execution artifact audits and
+were \emph{never run}; consequently no result predates the sealed attempt. All identifiers
 appear in Appendix~\ref{app:audit}.
 
 \section{Conclusion}
@@ -557,6 +577,12 @@ refute the mathematical results of the seed paper
 expected to deliver as a measurable, decision-relevant object in financial
 data, and it documents --- with full custody --- how a preregistered negative
 result of this kind can be produced and audited.
+
+\section*{Transparency Statement}
+
+Generative-AI systems assisted with code generation, testing, artifact
+auditing, and manuscript drafting. The human author reviewed the scientific
+claims and assumes full responsibility for the submitted work.
 
 \appendix
 
@@ -587,9 +613,9 @@ Python 3.14.3; numpy 2.4.4; scipy 1.17.1; matplotlib 3.10.9; Linux x86-64
 the full cheap suite.
 
 \paragraph{Execution history declaration.}
-Execution freezes v2--v7 were each found non-executable by independent
-pre-execution audits (defects ranged from custody flaws to a missing frozen
-tolerance block) and were superseded without ever producing a result. The
+Execution freezes v2--v7 were each found non-executable by separate
+pre-execution artifact audits (defects ranged from custody flaws to a missing
+frozen tolerance block) and were superseded without ever producing a result. The
 sealed attempt \texttt{1baa47da06fede2a} under freeze v8 is the \emph{only}
 scientific execution of this project.
 

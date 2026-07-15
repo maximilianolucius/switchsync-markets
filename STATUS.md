@@ -126,7 +126,9 @@ P1.2-F and executed against an EXTERNAL run-dir; results are sealed OUTSIDE the 
 ## P1.3 — FORMAL SCIENTIFIC CLOSURE (authoritative)
 
 The P1.2-F cheap-suite one-shot (attempt `1baa47da06fede2a`, freeze v8 `2991e064…`,
-zero failures/nonfinite/dropped seeds) was independently audited and ACCEPTED. Its
+zero failures/nonfinite/dropped seeds) was ACCEPTED by a separate post-execution
+artifact audit (terminology standardized in P1.3-A: no documented external human
+auditor exists, so "independent audit" is not claimed). Its
 artifacts are committed byte-for-byte under `results/p1_2f_cheap_suite/` (registry
 `results/RESULTS_REGISTRY.json`, tag `switchsync-synthetic-results-v2`). The exact
 preregistered conclusions:
