@@ -3,3 +3,11 @@ __pycache__/
 .pytest_cache/
 *.tmp
 .DS_Store
+
+# LaTeX build artifacts (paper/main.bbl is kept: required by arXiv)
+paper/main.aux
+paper/main.blg
+paper/main.fdb_latexmk
+paper/main.fls
+paper/main.log
+paper/main.out
