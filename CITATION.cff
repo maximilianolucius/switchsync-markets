@@ -1,11 +1,9 @@
 cff-version: 1.2.0
 message: >-
   If you use this repository, please cite it as below. This is synthetic-only,
-  preregistered research; results are not evidence about real markets.
-  AUTHOR-METADATA BLOCKER: the human author's name/affiliation/email/ORCID have
-  not yet been provided and are deliberately not fabricated
-  (PAPER_RC_BLOCKED_ON_AUTHOR_METADATA_AND_LICENSE); the repository license is
-  also unresolved (docs/LICENSE_BLOCKER.md).
+  preregistered research; results are not evidence about real markets. The
+  arXiv manuscript is licensed CC BY 4.0; the repository's general code license
+  remains a separate, still-open decision (docs/LICENSE_BLOCKER.md).
 title: "SwitchSync Markets: a preregistered synthetic stress test of switching synchronization as a financial-network mechanism (P0-P1.3, closed)"
 abstract: >-
   A synthetic, preregistered study auditing whether the link-switching
@@ -17,12 +15,14 @@ abstract: >-
   (G1-strict and G2 formally NOT_INTERPRETABLE), G4 FAIL. The financial
   translation is not supported for empirical or operational development under
   the preregistered criteria; this does not refute the seed paper's
-  mathematics. No real market data were used. An arXiv-format manuscript is
-  under paper/ (release candidate; blocked on author metadata and license).
+  mathematics. No real market data were used. A finalized arXiv-format
+  manuscript is under paper/ (CC BY 4.0).
 type: software
 authors:
-  - name: "SwitchSync Markets project (repository owner; human author metadata pending — placeholder, not a personal identity)"
-    website: "https://github.com/maximilianolucius/switchsync-markets"
+  - family-names: "Lucius"
+    given-names: "Maximiliano"
+    email: "maximiliano@aureus-finance.com"
+    affiliation: "Independent Researcher, Buenos Aires, Argentina"
 repository-code: "https://github.com/maximilianolucius/switchsync-markets"
 keywords:
   - synchronization

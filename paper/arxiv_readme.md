@@ -52,16 +52,29 @@ used anywhere. A P1.3-A recomputation gate re-derived every decision statistic
 (mean, ddof-1 sd, effect band, exact sign test) from the sealed
 `paired_differences` arrays: 34/34 MATCH (`docs/audits/p1_3_manuscript_audit.md`).
 
-## Status: RELEASE CANDIDATE — NOT SUBMISSION-READY
+## Status: FINALIZED (P1.3-B)
 
-**`PAPER_RC_BLOCKED_ON_AUTHOR_METADATA_AND_LICENSE`**
+- **Author:** Maximiliano Lucius, Independent Researcher, Buenos Aires,
+  Argentina (`maximiliano@aureus-finance.com`). No ORCID.
+- **arXiv submission license:** Creative Commons Attribution 4.0 International
+  (CC BY 4.0). This choice applies to the **manuscript only**. It does NOT
+  create or modify the repository's general code LICENSE, which remains a
+  separate, still-open decision (`docs/LICENSE_BLOCKER.md`).
 
-Human inputs still required (deliberately NOT fabricated):
+The manuscript is prepared and self-consistent. Nothing has been pushed and
+nothing has been submitted to arXiv; those remain explicit human actions.
 
-1. Author name(s), affiliation, contact email, optional ORCID — currently a
-   marked placeholder in `main.tex` (`\author`) and in the PDF metadata
-   (`pdfauthor`).
-2. arXiv submission license AND repository license
-   (`docs/LICENSE_BLOCKER.md`; not resolved unilaterally).
+## Exact arXiv upload instruction
 
-Until both are provided, do not submit and do not create the final paper tag.
+1. Take the deterministic source archive `switchsync-arxiv-v1.tar.gz` (built in
+   P1.3-B; `main.tex` at the archive root; includes `main.bbl`, `references.bib`,
+   `tables/`, `figures/`; excludes the compiled PDF, results, scripts and all
+   caches).
+2. At <https://arxiv.org/submit>, start a new submission, primary category
+   `nlin.AO` (cross-list `q-fin.ST`, `physics.soc-ph`), and upload that single
+   `.tar.gz`. arXiv runs its own AutoTeX (pdfLaTeX); the bundled `main.bbl` is
+   used directly (no `.bib` processing is required by arXiv, but the `.bib` is
+   included for completeness).
+3. Select license **CC BY 4.0** when prompted.
+4. Verify arXiv's compiled preview is 14 pages and matches the local
+   `paper/main.pdf`, then complete the submission.
