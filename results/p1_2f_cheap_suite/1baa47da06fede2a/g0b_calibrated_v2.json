@@ -1,0 +1,137 @@
+{
+  "gate": "G0B_calibrated_demonstration",
+  "provenance": {
+    "attempt_id": "1baa47da06fede2a",
+    "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+    "campaign_id": "44be3a5d07e67b5e",
+    "criterion": "DEMONSTRATED(=PASS) iff ALL fast T_swt<=10 sync AND ALL slow T_swt>=160 do not (ALL semantics); calibrated demo, not reproduction",
+    "environment": {
+      "packages": {
+        "matplotlib": "3.10.9",
+        "numpy": "2.4.4",
+        "scipy": "1.17.1"
+      },
+      "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+      "python": "3.14.3"
+    },
+    "execution_contract_canonical_hash": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+    "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+    "execution_mode": "cheap-suite",
+    "execution_scope": "cheap-suite",
+    "failures": [],
+    "freeze_commit": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "freeze_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+    "freeze_tag": "switchsync-synthetic-execution-v8-freeze",
+    "orchestrator_sha256": "9591289aef02fa9d55608387b50571c177c2c0e8988e947f09013668549c4249",
+    "params": {
+      "N": 40,
+      "N_IL": 10,
+      "T_swt_grid": [
+        2.0,
+        5.0,
+        10.0,
+        20.0,
+        40.0,
+        80.0,
+        160.0,
+        300.0
+      ],
+      "record_every": 25,
+      "sigma_inter": 1.5,
+      "total_time": 800.0
+    },
+    "prereg_canonical_hash": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+    "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e",
+    "runner_sha256": "933fbb118cb9fa03e5652bc423a044c6c7026b80f772068b956d5d2cfbbcd3ed",
+    "runtime_head": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "seeds": [
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "source_commit": "0bb2ab8a9c32f5c2f5193be97c7d29e919816944"
+  },
+  "result": {
+    "fast_all_sync": true,
+    "frac_synced_denominator": "SUCCESSFUL_SEEDS_ONLY (frozen; failed seeds are excluded from the denominator and disclosed per cell)",
+    "label": "CALIBRATED_QUALITATIVE_DEMONSTRATION (NOT paper reproduction)",
+    "rows": [
+      {
+        "T_swt": 2.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 1.15917888897962e-15,
+        "n_successful": 5
+      },
+      {
+        "T_swt": 5.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 1.29524959997532e-15,
+        "n_successful": 5
+      },
+      {
+        "T_swt": 10.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 3.6328947632748605e-10,
+        "n_successful": 5
+      },
+      {
+        "T_swt": 20.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 2.1817511076721015e-05,
+        "n_successful": 5
+      },
+      {
+        "T_swt": 40.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 1.0,
+        "mean_tail_E12": 0.002756645637170663,
+        "n_successful": 5
+      },
+      {
+        "T_swt": 80.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 0.6,
+        "mean_tail_E12": 0.02871809903343578,
+        "n_successful": 5
+      },
+      {
+        "T_swt": 160.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 0.2,
+        "mean_tail_E12": 0.07708148405941877,
+        "n_successful": 5
+      },
+      {
+        "T_swt": 300.0,
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "frac_synced": 0.2,
+        "mean_tail_E12": 0.0683029395364754,
+        "n_successful": 5
+      }
+    ],
+    "slow_all_not_sync": true
+  },
+  "verdict": "PASS"
+}

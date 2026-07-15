@@ -1,0 +1,97 @@
+{
+  "gate": "G0C_msf_minimal",
+  "provenance": {
+    "attempt_id": "1baa47da06fede2a",
+    "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+    "campaign_id": "44be3a5d07e67b5e",
+    "criterion": "PASS iff fast has Psi<0 region AND onset depends on T_swt; Psi<0 but no dependence -> INCONCLUSIVE(PARTIAL_NO_TSWT_DEPENDENCE); no Psi<0 -> FAIL; prereq fail -> EXECUTION_INVALID(PREREQ_FAIL)",
+    "environment": {
+      "packages": {
+        "matplotlib": "3.10.9",
+        "numpy": "2.4.4",
+        "scipy": "1.17.1"
+      },
+      "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+      "python": "3.14.3"
+    },
+    "execution_contract_canonical_hash": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+    "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+    "execution_mode": "cheap-suite",
+    "execution_scope": "cheap-suite",
+    "failures": [],
+    "freeze_commit": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "freeze_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+    "freeze_tag": "switchsync-synthetic-execution-v8-freeze",
+    "orchestrator_sha256": "9591289aef02fa9d55608387b50571c177c2c0e8988e947f09013668549c4249",
+    "params": {
+      "N": 2,
+      "T_swt_grid": [
+        11.0,
+        25.0,
+        100.0,
+        135.0
+      ],
+      "alpha": 5.0,
+      "lam_perp": 2.0,
+      "n_steps": 40000,
+      "renorm_every": 5,
+      "sigma_grid": [
+        0.05,
+        0.15,
+        0.3,
+        0.5,
+        0.8
+      ],
+      "transient_steps": 3000
+    },
+    "prereg_canonical_hash": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+    "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e",
+    "reason_code": "PARTIAL_NO_TSWT_DEPENDENCE",
+    "runner_sha256": "a8ad834d6c4f5c7f78578e8add7e1d0a6a924fba68dec7c5448c306dcbf4cf66",
+    "runtime_head": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "seeds": [
+      31
+    ],
+    "source_commit": "0bb2ab8a9c32f5c2f5193be97c7d29e919816944"
+  },
+  "result": {
+    "boundary_depends_on_Tswt": false,
+    "onset_sigma_by_Tswt": {
+      "100.0": 0.05,
+      "11.0": 0.05,
+      "135.0": 0.05,
+      "25.0": 0.05
+    },
+    "psi_grid": {
+      "100.0": {
+        "0.05": -0.009199270730904425,
+        "0.15": -0.03451439483505364,
+        "0.3": -0.07087658589821577,
+        "0.5": -0.0956926298785243,
+        "0.8": -0.11788688607996145
+      },
+      "11.0": {
+        "0.05": -0.008381590053190526,
+        "0.15": -0.028841282456721542,
+        "0.3": -0.06325689357489321,
+        "0.5": -0.1262525976040062,
+        "0.8": -0.17691846022612254
+      },
+      "135.0": {
+        "0.05": -0.013106998805418948,
+        "0.15": -0.04720899069123032,
+        "0.3": -0.09954090866306271,
+        "0.5": -0.1268407107116389,
+        "0.8": -0.15852849525541782
+      },
+      "25.0": {
+        "0.05": -0.008694926697548969,
+        "0.15": -0.031124875159250172,
+        "0.3": -0.08256254352432998,
+        "0.5": -0.08910101369051954,
+        "0.8": -0.11241586830868865
+      }
+    }
+  },
+  "verdict": "INCONCLUSIVE"
+}

@@ -1,0 +1,64 @@
+{
+  "package": "switchsync-markets P1.2-F cheap-suite RESULT (synthetic; not committed)",
+  "attempt_id": "1baa47da06fede2a",
+  "campaign_id": "44be3a5d07e67b5e",
+  "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+  "freeze_commit": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+  "freeze_tag": "switchsync-synthetic-execution-v8-freeze",
+  "freeze_v8_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+  "prereg_v8_canonical": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+  "exec_v6_canonical": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+  "exit_code": 0,
+  "terminal_state": "COMPLETED",
+  "started_utc": "2026-07-14T19:46:42.275337+00:00",
+  "ended_utc": "2026-07-14T19:55:26.628915+00:00",
+  "gate_verdicts": {
+    "G0A_exact_reproduction": "NOT_RUN",
+    "G0B_calibrated_demonstration": "PASS",
+    "G0C_msf_minimal": "INCONCLUSIVE",
+    "G1_G2_paired": "INCONCLUSIVE",
+    "G3_robustness": "INCONCLUSIVE",
+    "G4_identifiability": "FAIL"
+  },
+  "real_data_used": false,
+  "committed": false,
+  "pushed": false,
+  "files": {
+    "1baa47da06fede2a/SEALED": {
+      "sha256": "a524cb102718b02a51931c131f1db71df24eb1d9bab2cde92873deb5a0c4db14",
+      "size": 65
+    },
+    "1baa47da06fede2a/attempt_manifest.json": {
+      "sha256": "99cb3e3ec48ca4ef19fc1344919424ad04afff9746dfee6754cdc04700363d95",
+      "size": 4795
+    },
+    "1baa47da06fede2a/g0b_calibrated_v2.json": {
+      "sha256": "d592b75d59b6e50c51ec6263c0a8469654651e0ef247fd2fadd3cf5adad4d4e5",
+      "size": 4167
+    },
+    "1baa47da06fede2a/g0c_msf_v2.json": {
+      "sha256": "150a53dc42236742d347012704a00a4d2e1db52d99bb800341bbc3ec6de484d0",
+      "size": 3214
+    },
+    "1baa47da06fede2a/g1_g2_paired_v2.json": {
+      "sha256": "b6242cd72510ce6d8b0daa5edba31b1c124f3fa519eae92ac0a408f06decbce0",
+      "size": 8049
+    },
+    "1baa47da06fede2a/g3_robustness_v2.json": {
+      "sha256": "2f16a4578c5b48cbb8621455b5a37042ec615a7127c9d709acb43ab1a3414964",
+      "size": 18800
+    },
+    "1baa47da06fede2a/g4_identifiability_v2.json": {
+      "sha256": "bd148d1ed23ba057df41dedfbdb7414b7d450a7f5c28b59617e354d5bbb597e6",
+      "size": 4115
+    },
+    "RESULT_REPORT.md": {
+      "sha256": "b4a26c218e6690428a8a0e9f5a65d86c3d49f301861e90fd5b3f399128231db4",
+      "size": 9366
+    },
+    "console.log": {
+      "sha256": "deeefd0eb3a9b9544445f19329e923a3cd995a87241044c4ab65e8d4b3a6410f",
+      "size": 380
+    }
+  }
+}

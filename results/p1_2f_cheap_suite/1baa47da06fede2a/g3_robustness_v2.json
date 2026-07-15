@@ -1,0 +1,575 @@
+{
+  "gate": "G3_robustness",
+  "provenance": {
+    "attempt_id": "1baa47da06fede2a",
+    "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+    "campaign_id": "44be3a5d07e67b5e",
+    "criterion": "per-stage shared sign-test on (gamma_fast - gamma_static); PASS iff faithful AND mild_heterogeneity PASS; signed stage requires per-seed negative weight and budget equality",
+    "environment": {
+      "packages": {
+        "matplotlib": "3.10.9",
+        "numpy": "2.4.4",
+        "scipy": "1.17.1"
+      },
+      "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+      "python": "3.14.3"
+    },
+    "execution_contract_canonical_hash": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+    "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+    "execution_mode": "cheap-suite",
+    "execution_scope": "cheap-suite",
+    "failures": [],
+    "freeze_commit": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "freeze_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+    "freeze_tag": "switchsync-synthetic-execution-v8-freeze",
+    "orchestrator_sha256": "9591289aef02fa9d55608387b50571c177c2c0e8988e947f09013668549c4249",
+    "params": {
+      "stages": [
+        {
+          "directed": false,
+          "heterogeneity": 0.0,
+          "name": "faithful",
+          "signed": false
+        },
+        {
+          "directed": false,
+          "heterogeneity": 0.05,
+          "name": "mild_heterogeneity",
+          "signed": false
+        },
+        {
+          "directed": false,
+          "heterogeneity": 0.2,
+          "name": "strong_heterogeneity",
+          "signed": false
+        },
+        {
+          "directed": true,
+          "heterogeneity": 0.05,
+          "name": "directed",
+          "signed": false
+        },
+        {
+          "directed": false,
+          "heterogeneity": 0.05,
+          "name": "signed",
+          "signed": true
+        }
+      ],
+      "surrogate_paired": {
+        "H": 240,
+        "K": 6,
+        "N": 24,
+        "N_IL": 6,
+        "best_static_search": 200,
+        "candidate_search_seed": 900001,
+        "cycles_fast": 20,
+        "cycles_intermediate": 5,
+        "cycles_slow": 1,
+        "g2_n_perm": 200,
+        "g2_perm_seed": 700003,
+        "intra_coupling": 0.06,
+        "kappa": 0.6,
+        "neg_fraction_signed": 0.4,
+        "rho_target": 1.04,
+        "variable_dwell_multiset": [
+          8,
+          16,
+          24,
+          40,
+          56,
+          96
+        ]
+      }
+    },
+    "prereg_canonical_hash": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+    "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e",
+    "reason_code": "TIE",
+    "runner_sha256": "fe38745cdf30be39b2f5376458299eaa5dfc944a9e468834e215ef43b9beb1cf",
+    "runtime_head": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "seeds": [
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58
+    ],
+    "source_commit": "0bb2ab8a9c32f5c2f5193be97c7d29e919816944"
+  },
+  "result": {
+    "advantage": "gamma_fast - gamma_static per seed (paired)",
+    "by_stage": {
+      "directed": {
+        "decision": {
+          "alpha": 0.05,
+          "bootstrap_ci95_descriptor": [
+            0.03974482917941098,
+            0.08398460455577797
+          ],
+          "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+          "effect_band": 0.10060239633667692,
+          "floor": 0.02,
+          "mean": 0.060324084575616804,
+          "n": 8,
+          "paired_differences": [
+            0.04637967672372722,
+            0.050036869779797204,
+            0.012059173239746854,
+            0.08746947173963596,
+            0.12577192868613202,
+            0.060633966095346215,
+            0.04753346528664401,
+            0.05270812505390499
+          ],
+          "reason": "TIE",
+          "sample_std_ddof1": 0.03353413211222564,
+          "sign_test": {
+            "n_neg": 0,
+            "n_nonzero": 8,
+            "n_pos": 8,
+            "n_zero": 0,
+            "p_value": 0.0078125
+          },
+          "std_definition": "sample standard deviation of paired differences, ddof=1",
+          "std_mult": 3.0,
+          "verdict": "INCONCLUSIVE",
+          "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+        },
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "per_seed": [
+          {
+            "advantage": 0.04637967672372722,
+            "n_negative_offdiag": 250,
+            "offdiag_frobenius_prescale": 0.8485171153059132,
+            "seed": 51
+          },
+          {
+            "advantage": 0.050036869779797204,
+            "n_negative_offdiag": 235,
+            "offdiag_frobenius_prescale": 0.805395521520927,
+            "seed": 52
+          },
+          {
+            "advantage": 0.012059173239746854,
+            "n_negative_offdiag": 245,
+            "offdiag_frobenius_prescale": 0.8089127396301219,
+            "seed": 53
+          },
+          {
+            "advantage": 0.08746947173963596,
+            "n_negative_offdiag": 254,
+            "offdiag_frobenius_prescale": 0.8126662447234702,
+            "seed": 54
+          },
+          {
+            "advantage": 0.12577192868613202,
+            "n_negative_offdiag": 258,
+            "offdiag_frobenius_prescale": 0.8327195327550152,
+            "seed": 55
+          },
+          {
+            "advantage": 0.060633966095346215,
+            "n_negative_offdiag": 232,
+            "offdiag_frobenius_prescale": 0.8050714312145446,
+            "seed": 56
+          },
+          {
+            "advantage": 0.04753346528664401,
+            "n_negative_offdiag": 266,
+            "offdiag_frobenius_prescale": 0.7835204430232375,
+            "seed": 57
+          },
+          {
+            "advantage": 0.05270812505390499,
+            "n_negative_offdiag": 256,
+            "offdiag_frobenius_prescale": 0.81627982029912,
+            "seed": 58
+          }
+        ]
+      },
+      "faithful": {
+        "decision": {
+          "alpha": 0.05,
+          "bootstrap_ci95_descriptor": [
+            0.03333169136506996,
+            0.06664316231279221
+          ],
+          "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+          "effect_band": 0.07894257343508485,
+          "floor": 0.02,
+          "mean": 0.04922373110490344,
+          "n": 8,
+          "paired_differences": [
+            0.013287770370194716,
+            0.028078684480703265,
+            0.06688716902960548,
+            0.04307425572316782,
+            0.08350238158175359,
+            0.06949388458806768,
+            0.06852882001974504,
+            0.020936883045989948
+          ],
+          "reason": "TIE",
+          "sample_std_ddof1": 0.02631419114502828,
+          "sign_test": {
+            "n_neg": 0,
+            "n_nonzero": 8,
+            "n_pos": 8,
+            "n_zero": 0,
+            "p_value": 0.0078125
+          },
+          "std_definition": "sample standard deviation of paired differences, ddof=1",
+          "std_mult": 3.0,
+          "verdict": "INCONCLUSIVE",
+          "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+        },
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "per_seed": [
+          {
+            "advantage": 0.013287770370194716,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 51
+          },
+          {
+            "advantage": 0.028078684480703265,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 52
+          },
+          {
+            "advantage": 0.06688716902960548,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 53
+          },
+          {
+            "advantage": 0.04307425572316782,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 54
+          },
+          {
+            "advantage": 0.08350238158175359,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 55
+          },
+          {
+            "advantage": 0.06949388458806768,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 56
+          },
+          {
+            "advantage": 0.06852882001974504,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 57
+          },
+          {
+            "advantage": 0.020936883045989948,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 58
+          }
+        ]
+      },
+      "mild_heterogeneity": {
+        "decision": {
+          "alpha": 0.05,
+          "bootstrap_ci95_descriptor": [
+            0.014967462037053968,
+            0.08786469896561494
+          ],
+          "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+          "effect_band": 0.1714969843979608,
+          "floor": 0.02,
+          "mean": 0.04549355193122414,
+          "n": 8,
+          "paired_differences": [
+            0.0018633199508490197,
+            0.0074396579368497875,
+            0.08285728760584522,
+            0.011587048088537128,
+            0.16950335547654127,
+            0.03827210424402937,
+            0.04626176583203177,
+            0.006163876315109515
+          ],
+          "reason": "TIE",
+          "sample_std_ddof1": 0.057165661465986936,
+          "sign_test": {
+            "n_neg": 0,
+            "n_nonzero": 8,
+            "n_pos": 8,
+            "n_zero": 0,
+            "p_value": 0.0078125
+          },
+          "std_definition": "sample standard deviation of paired differences, ddof=1",
+          "std_mult": 3.0,
+          "verdict": "INCONCLUSIVE",
+          "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+        },
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "per_seed": [
+          {
+            "advantage": 0.0018633199508490197,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 51
+          },
+          {
+            "advantage": 0.0074396579368497875,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 52
+          },
+          {
+            "advantage": 0.08285728760584522,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 53
+          },
+          {
+            "advantage": 0.011587048088537128,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 54
+          },
+          {
+            "advantage": 0.16950335547654127,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 55
+          },
+          {
+            "advantage": 0.03827210424402937,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 56
+          },
+          {
+            "advantage": 0.04626176583203177,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 57
+          },
+          {
+            "advantage": 0.006163876315109515,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 58
+          }
+        ]
+      },
+      "signed": {
+        "decision": {
+          "alpha": 0.05,
+          "bootstrap_ci95_descriptor": [
+            0.03015689190324333,
+            0.0644043019104109
+          ],
+          "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+          "effect_band": 0.07987900309331883,
+          "floor": 0.02,
+          "mean": 0.046720711723883396,
+          "n": 8,
+          "paired_differences": [
+            0.03647639773565337,
+            0.0404167500089802,
+            0.030941307920669646,
+            0.05460556670735642,
+            0.09157773677414943,
+            0.06938691282466393,
+            0.048126267336610865,
+            0.0022347544829833463
+          ],
+          "reason": "TIE",
+          "sample_std_ddof1": 0.02662633436443961,
+          "sign_test": {
+            "n_neg": 0,
+            "n_nonzero": 8,
+            "n_pos": 8,
+            "n_zero": 0,
+            "p_value": 0.0078125
+          },
+          "std_definition": "sample standard deviation of paired differences, ddof=1",
+          "std_mult": 3.0,
+          "verdict": "INCONCLUSIVE",
+          "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+        },
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "per_seed": [
+          {
+            "advantage": 0.03647639773565337,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 51,
+            "unsigned_budget_prescale": 0.41569219381653055
+          },
+          {
+            "advantage": 0.0404167500089802,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 52,
+            "unsigned_budget_prescale": 0.41569219381653055
+          },
+          {
+            "advantage": 0.030941307920669646,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 53,
+            "unsigned_budget_prescale": 0.41569219381653055
+          },
+          {
+            "advantage": 0.05460556670735642,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 54,
+            "unsigned_budget_prescale": 0.41569219381653055
+          },
+          {
+            "advantage": 0.09157773677414943,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 55,
+            "unsigned_budget_prescale": 0.41569219381653055
+          },
+          {
+            "advantage": 0.06938691282466393,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 56,
+            "unsigned_budget_prescale": 0.41569219381653055
+          },
+          {
+            "advantage": 0.048126267336610865,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 57,
+            "unsigned_budget_prescale": 0.41569219381653055
+          },
+          {
+            "advantage": 0.0022347544829833463,
+            "budget_diff": 0.0,
+            "n_negative_offdiag": 20,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 58,
+            "unsigned_budget_prescale": 0.41569219381653055
+          }
+        ]
+      },
+      "strong_heterogeneity": {
+        "decision": {
+          "alpha": 0.05,
+          "bootstrap_ci95_descriptor": [
+            0.008748129320013653,
+            0.13560068544900555
+          ],
+          "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+          "effect_band": 0.29843695669125675,
+          "floor": 0.02,
+          "mean": 0.06306717169921552,
+          "n": 8,
+          "paired_differences": [
+            1.7519860867509784e-05,
+            0.0005122390061284288,
+            0.14289867259085334,
+            -3.5992808624235595e-06,
+            0.2769998526295675,
+            0.034479253651095866,
+            0.0524070744240967,
+            -0.002773639288022784
+          ],
+          "reason": "NOT_SIGNIFICANT",
+          "sample_std_ddof1": 0.09947898556375225,
+          "sign_test": {
+            "n_neg": 2,
+            "n_nonzero": 8,
+            "n_pos": 6,
+            "n_zero": 0,
+            "p_value": 0.2890625
+          },
+          "std_definition": "sample standard deviation of paired differences, ddof=1",
+          "std_mult": 3.0,
+          "verdict": "INCONCLUSIVE",
+          "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+        },
+        "failed_seeds": [],
+        "failure_records": [],
+        "frac_failed": 0.0,
+        "per_seed": [
+          {
+            "advantage": 1.7519860867509784e-05,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 51
+          },
+          {
+            "advantage": 0.0005122390061284288,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 52
+          },
+          {
+            "advantage": 0.14289867259085334,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 53
+          },
+          {
+            "advantage": -3.5992808624235595e-06,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 54
+          },
+          {
+            "advantage": 0.2769998526295675,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 55
+          },
+          {
+            "advantage": 0.034479253651095866,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 56
+          },
+          {
+            "advantage": 0.0524070744240967,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 57
+          },
+          {
+            "advantage": -0.002773639288022784,
+            "n_negative_offdiag": 0,
+            "offdiag_frobenius_prescale": 0.41569219381653055,
+            "seed": 58
+          }
+        ]
+      }
+    },
+    "first_stage_without_pass": "faithful"
+  },
+  "verdict": "INCONCLUSIVE"
+}

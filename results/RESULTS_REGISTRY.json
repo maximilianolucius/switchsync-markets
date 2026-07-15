@@ -1,0 +1,58 @@
+{
+  "registry": "switchsync-markets immutable results registry",
+  "note": "Each entry references a sealed, externally-executed attempt whose artifacts are committed byte-for-byte under results/. Registry entries are append-only; committed result files are never rewritten or pretty-printed.",
+  "entries": [
+    {
+      "entry_id": "p1_2f_cheap_suite",
+      "phase": "P1.2-F (executed) / P1.3 (custody)",
+      "attempt_id": "1baa47da06fede2a",
+      "campaign_id": "44be3a5d07e67b5e",
+      "execution_scope": "cheap-suite",
+      "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+      "executed_utc": {
+        "started": "2026-07-14T19:46:42.275337+00:00",
+        "ended": "2026-07-14T19:55:26.628915+00:00"
+      },
+      "exit_code": 0,
+      "terminal_state": "COMPLETED",
+      "contract": {
+        "prereg": "experiments/configs/synthetic_prereg_v8.json",
+        "prereg_canonical": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+        "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e",
+        "execution_contract": "experiments/configs/synthetic_execution_contract_v6.json",
+        "execution_contract_canonical": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+        "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+        "freeze": "artifacts/freeze_execution_v8.json",
+        "freeze_v8_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+        "freeze_commit": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+        "freeze_tag": "switchsync-synthetic-execution-v8-freeze"
+      },
+      "gate_verdicts": {
+        "G0A_exact_reproduction": "NOT_RUN — outside the cheap-suite scope and unnecessary for the financial-translation decision",
+        "G0B_calibrated_demonstration": "PASS (calibrated qualitative demonstration only; NOT a paper reproduction)",
+        "G0C_msf_minimal": "INCONCLUSIVE (PARTIAL_NO_TSWT_DEPENDENCE)",
+        "G1_G2_paired": "INCONCLUSIVE (G1_weak TIE; G1_strict and G2 NOT_INTERPRETABLE)",
+        "G3_robustness": "INCONCLUSIVE",
+        "G4_identifiability": "FAIL"
+      },
+      "artifact_sha256": {
+        "results/p1_2f_cheap_suite/1baa47da06fede2a/attempt_manifest.json": "99cb3e3ec48ca4ef19fc1344919424ad04afff9746dfee6754cdc04700363d95",
+        "results/p1_2f_cheap_suite/1baa47da06fede2a/SEALED": "a524cb102718b02a51931c131f1db71df24eb1d9bab2cde92873deb5a0c4db14",
+        "results/p1_2f_cheap_suite/1baa47da06fede2a/g0b_calibrated_v2.json": "d592b75d59b6e50c51ec6263c0a8469654651e0ef247fd2fadd3cf5adad4d4e5",
+        "results/p1_2f_cheap_suite/1baa47da06fede2a/g0c_msf_v2.json": "150a53dc42236742d347012704a00a4d2e1db52d99bb800341bbc3ec6de484d0",
+        "results/p1_2f_cheap_suite/1baa47da06fede2a/g1_g2_paired_v2.json": "b6242cd72510ce6d8b0daa5edba31b1c124f3fa519eae92ac0a408f06decbce0",
+        "results/p1_2f_cheap_suite/1baa47da06fede2a/g3_robustness_v2.json": "2f16a4578c5b48cbb8621455b5a37042ec615a7127c9d709acb43ab1a3414964",
+        "results/p1_2f_cheap_suite/1baa47da06fede2a/g4_identifiability_v2.json": "bd148d1ed23ba057df41dedfbdb7414b7d450a7f5c28b59617e354d5bbb597e6",
+        "results/p1_2f_cheap_suite/RESULT_REPORT.md": "b4a26c218e6690428a8a0e9f5a65d86c3d49f301861e90fd5b3f399128231db4",
+        "results/p1_2f_cheap_suite/RESULT_MANIFEST.json": "b0e58b6b6ceee414d5c2e503a89b78684844b34365c6e44519a8814d21751bba",
+        "results/p1_2f_cheap_suite/console.log": "deeefd0eb3a9b9544445f19329e923a3cd995a87241044c4ab65e8d4b3a6410f"
+      },
+      "manifest_content_hash_equals_sealed": "4e029d814437695d99c4b5cc62cbe3cf94ebd0e46c6e9ae51d54cc5f28f3c33d",
+      "result_zip_sha256": "db71e2bf4c5ec3e958faa31935f483ae9d31fa2d106cc5550c47f6cff11ef2a9",
+      "failures": {"failure_records": 0, "nonfinite": 0, "dropped_seeds": 0},
+      "real_data_used": false,
+      "independent_audit": "ACCEPTED (P1.3): all hashes, identities, verdicts and decision statistics recomputed exactly",
+      "custody_tag": "switchsync-synthetic-results-v2"
+    }
+  ]
+}

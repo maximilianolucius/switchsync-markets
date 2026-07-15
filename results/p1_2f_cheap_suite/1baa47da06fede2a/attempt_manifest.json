@@ -1,0 +1,107 @@
+{
+  "artifacts": {
+    "g0b_calibrated_v2.json": {
+      "role": "report",
+      "sha256": "d592b75d59b6e50c51ec6263c0a8469654651e0ef247fd2fadd3cf5adad4d4e5",
+      "size": 4167
+    },
+    "g0c_msf_v2.json": {
+      "role": "report",
+      "sha256": "150a53dc42236742d347012704a00a4d2e1db52d99bb800341bbc3ec6de484d0",
+      "size": 3214
+    },
+    "g1_g2_paired_v2.json": {
+      "role": "report",
+      "sha256": "b6242cd72510ce6d8b0daa5edba31b1c124f3fa519eae92ac0a408f06decbce0",
+      "size": 8049
+    },
+    "g3_robustness_v2.json": {
+      "role": "report",
+      "sha256": "2f16a4578c5b48cbb8621455b5a37042ec615a7127c9d709acb43ab1a3414964",
+      "size": 18800
+    },
+    "g4_identifiability_v2.json": {
+      "role": "report",
+      "sha256": "bd148d1ed23ba057df41dedfbdb7414b7d450a7f5c28b59617e354d5bbb597e6",
+      "size": 4115
+    }
+  },
+  "attempt_id": "1baa47da06fede2a",
+  "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+  "campaign_id": "44be3a5d07e67b5e",
+  "ended_utc": "2026-07-14T19:55:26.628915+00:00",
+  "environment": {
+    "packages": {
+      "matplotlib": "3.10.9",
+      "numpy": "2.4.4",
+      "scipy": "1.17.1"
+    },
+    "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+    "python": "3.14.3"
+  },
+  "execution_scope": "cheap-suite",
+  "exit_status": 0,
+  "gate_verdicts": {
+    "G0B_calibrated_demonstration": "PASS",
+    "G0C_msf_minimal": "INCONCLUSIVE",
+    "G1_G2_paired": "INCONCLUSIVE",
+    "G3_robustness": "INCONCLUSIVE",
+    "G4_identifiability": "FAIL"
+  },
+  "hashes": {
+    "execution_contract_canonical": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+    "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+    "freeze_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+    "prereg_canonical": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+    "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e"
+  },
+  "head": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+  "manifest_content_hash": "4e029d814437695d99c4b5cc62cbe3cf94ebd0e46c6e9ae51d54cc5f28f3c33d",
+  "orchestrator_sha256": "9591289aef02fa9d55608387b50571c177c2c0e8988e947f09013668549c4249",
+  "runner_shas": {
+    "G0B_calibrated_demonstration": "933fbb118cb9fa03e5652bc423a044c6c7026b80f772068b956d5d2cfbbcd3ed",
+    "G0C_msf_minimal": "a8ad834d6c4f5c7f78578e8add7e1d0a6a924fba68dec7c5448c306dcbf4cf66",
+    "G1_G2_paired": "e527dc0d62b399ac70ddd560ebe797ebe0575b2f952c3ee109b0e95213fdceaf",
+    "G3_robustness": "fe38745cdf30be39b2f5376458299eaa5dfc944a9e468834e215ef43b9beb1cf",
+    "G4_identifiability": "e9fbc0d023c612050ae8a6a1709170e2fb77b18aaef9309eff8667668c6a37f6"
+  },
+  "started_utc": "2026-07-14T19:46:42.275337+00:00",
+  "state": "COMPLETED",
+  "structured_command": {
+    "argv_normalized": [
+      "--cheap-only",
+      "--i-am-authorized",
+      "--run-dir",
+      "/media/maxim/MX00x/working_dir/tmp/switchsync_runs/p1_2f",
+      "--expect-prereg-canonical",
+      "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+      "--expect-prereg-file-sha",
+      "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e",
+      "--expect-execution-contract-canonical",
+      "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+      "--expect-execution-contract-file-sha",
+      "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+      "--expect-freeze-content-hash",
+      "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+      "--expect-freeze-commit",
+      "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+      "--expect-freeze-tag",
+      "switchsync-synthetic-execution-v8-freeze",
+      "--authorization-token",
+      "<sha256:3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29>"
+    ],
+    "authorization_token": "<sha256:3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29>",
+    "execution_scope": "cheap-suite",
+    "hashes": {
+      "execution_contract_canonical": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+      "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+      "freeze_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+      "prereg_canonical": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+      "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e"
+    },
+    "interpreter": "/usr/local/bin/python3",
+    "python_version": "3.14.3",
+    "run_dir_resolved": "/media/maxim/MX00x/working_dir/tmp/switchsync_runs/p1_2f"
+  },
+  "tag": "switchsync-synthetic-execution-v8-freeze"
+}

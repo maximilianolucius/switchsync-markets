@@ -1,0 +1,9 @@
+START 2026-07-14T19:46:41Z
+  G0B_calibrated_demonstration: PASS
+  G0C_msf_minimal: INCONCLUSIVE
+  G1_G2_paired: INCONCLUSIVE
+  G3_robustness: INCONCLUSIVE
+  G4_identifiability: FAIL
+  G0A_exact_reproduction: NOT_RUN (scope cheap-suite)
+published sealed attempt 1baa47da06fede2a -> /media/maxim/MX00x/working_dir/tmp/switchsync_runs/p1_2f/1baa47da06fede2a
+END 2026-07-14T19:55:26Z

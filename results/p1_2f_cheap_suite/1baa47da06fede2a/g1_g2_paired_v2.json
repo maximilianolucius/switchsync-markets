@@ -1,0 +1,254 @@
+{
+  "gate": "G1_G2_paired",
+  "provenance": {
+    "attempt_id": "1baa47da06fede2a",
+    "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+    "campaign_id": "44be3a5d07e67b5e",
+    "criterion": "G1_weak by shared sign-test rule; G1_strict/G2 NOT_INTERPRETABLE unless G1_weak PASS; comparator = best-of-frozen-candidate-set; arm frozen on selection seeds; G2 = permutation-median comparator + cross-seed sign test",
+    "environment": {
+      "packages": {
+        "matplotlib": "3.10.9",
+        "numpy": "2.4.4",
+        "scipy": "1.17.1"
+      },
+      "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+      "python": "3.14.3"
+    },
+    "execution_contract_canonical_hash": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+    "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+    "execution_mode": "cheap-suite",
+    "execution_scope": "cheap-suite",
+    "failures": [],
+    "freeze_commit": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "freeze_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+    "freeze_tag": "switchsync-synthetic-execution-v8-freeze",
+    "orchestrator_sha256": "9591289aef02fa9d55608387b50571c177c2c0e8988e947f09013668549c4249",
+    "params": {
+      "H": 240,
+      "K": 6,
+      "N": 24,
+      "N_IL": 6,
+      "best_static_search": 200,
+      "candidate_search_seed": 900001,
+      "cycles_fast": 20,
+      "cycles_intermediate": 5,
+      "cycles_slow": 1,
+      "g2_n_perm": 200,
+      "g2_perm_seed": 700003,
+      "intra_coupling": 0.06,
+      "kappa": 0.6,
+      "neg_fraction_signed": 0.4,
+      "rho_target": 1.04,
+      "variable_dwell_multiset": [
+        8,
+        16,
+        24,
+        40,
+        56,
+        96
+      ]
+    },
+    "prereg_canonical_hash": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+    "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e",
+    "reason_code": "TIE",
+    "runner_sha256": "e527dc0d62b399ac70ddd560ebe797ebe0575b2f952c3ee109b0e95213fdceaf",
+    "runtime_head": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "seeds": {
+      "evaluation": [
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88
+      ],
+      "selection": [
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ]
+    },
+    "source_commit": "0bb2ab8a9c32f5c2f5193be97c7d29e919816944"
+  },
+  "result": {
+    "G1_strict": {
+      "alpha": 0.05,
+      "bootstrap_ci95_descriptor": [
+        -0.006576619452679859,
+        -0.0027407443778151583
+      ],
+      "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+      "effect_band": 0.02,
+      "floor": 0.02,
+      "gate_verdict": "NOT_INTERPRETABLE",
+      "interpretable": false,
+      "mean": -0.004570699999521352,
+      "n": 8,
+      "paired_differences": [
+        -0.0036910973788202555,
+        -0.0018991932579703538,
+        -0.0012015608518196226,
+        -0.00972911662059086,
+        -0.002891048053195863,
+        -0.005062665303206845,
+        -0.004082196490705179,
+        -0.008008722039861839
+      ],
+      "reason": "TIE",
+      "sample_std_ddof1": 0.0029518251357039914,
+      "sign_test": {
+        "n_neg": 8,
+        "n_nonzero": 8,
+        "n_pos": 0,
+        "n_zero": 0,
+        "p_value": 0.0078125
+      },
+      "std_definition": "sample standard deviation of paired differences, ddof=1",
+      "std_mult": 3.0,
+      "verdict": "INCONCLUSIVE",
+      "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+    },
+    "G1_weak": {
+      "alpha": 0.05,
+      "bootstrap_ci95_descriptor": [
+        0.02832585062143953,
+        0.05755900440853947
+      ],
+      "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+      "effect_band": 0.06663238462338543,
+      "floor": 0.02,
+      "mean": 0.041969394985717834,
+      "n": 8,
+      "paired_differences": [
+        0.03165829006335043,
+        0.020916090668744617,
+        0.017834511995301214,
+        0.07413293543317172,
+        0.04115080217609725,
+        0.03555765360882872,
+        0.03753231985650534,
+        0.07697255608374336
+      ],
+      "reason": "TIE",
+      "sample_std_ddof1": 0.02221079487446181,
+      "sign_test": {
+        "n_neg": 0,
+        "n_nonzero": 8,
+        "n_pos": 8,
+        "n_zero": 0,
+        "p_value": 0.0078125
+      },
+      "std_definition": "sample standard deviation of paired differences, ddof=1",
+      "std_mult": 3.0,
+      "verdict": "INCONCLUSIVE",
+      "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+    },
+    "G2_order": {
+      "alpha": 0.05,
+      "bootstrap_ci95_descriptor": [
+        0.0012083813361133545,
+        0.005276607941319327
+      ],
+      "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+      "effect_band": 0.02,
+      "floor": 0.02,
+      "gate_verdict": "NOT_INTERPRETABLE",
+      "interpretable": false,
+      "mean": 0.0030068854032817395,
+      "n": 8,
+      "paired_differences": [
+        0.0022457095881153796,
+        0.00021446553264384792,
+        0.001468271290422143,
+        0.004310748182529033,
+        0.004085957316073619,
+        0.0020646470895308716,
+        -0.00025442773214593827,
+        0.009919711959084962
+      ],
+      "reason": "NOT_SIGNIFICANT",
+      "sample_std_ddof1": 0.0032275583978723095,
+      "sign_test": {
+        "n_neg": 1,
+        "n_nonzero": 8,
+        "n_pos": 7,
+        "n_zero": 0,
+        "p_value": 0.0703125
+      },
+      "std_definition": "sample standard deviation of paired differences, ddof=1",
+      "std_mult": 3.0,
+      "verdict": "INCONCLUSIVE",
+      "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+    },
+    "arm_selection_scores": {
+      "fast": 0.03655298140416774,
+      "intermediate": 0.007108433050115286,
+      "slow": -0.015460296903468245
+    },
+    "arm_tie_break": "max mean selection gamma; canonical order fast<intermediate<slow",
+    "best_static_selection_score": -0.016930871444467192,
+    "best_static_subset": [
+      0,
+      5,
+      9,
+      13,
+      18,
+      22
+    ],
+    "comparator_name": "best-of-frozen-candidate-set",
+    "g2_method": "permutation-median comparator + cross-seed sign test: delta_s = gamma_ordered - median(gamma over frozen order permutations), aggregated by the shared exact sign test. This is NOT a per-seed permutation test; it detects a systematic displacement from the permutation median and sign-varying order effects can cancel across seeds.",
+    "n_candidates": 248,
+    "n_eval_failed": 0,
+    "per_seed_gamma_eval": {
+      "arm_gamma": [
+        0.004052897082852152,
+        -0.009462788404617693,
+        -0.009754415862383757,
+        0.04201603337064481,
+        0.007707739662416063,
+        0.0034407520365140496,
+        0.009935635491596104,
+        0.053422803405742604
+      ],
+      "average_graph": [
+        0.0077439944616724075,
+        -0.0075635951466473395,
+        -0.008552855010564134,
+        0.05174514999123567,
+        0.010598787715611926,
+        0.008503417339720895,
+        0.014017831982301283,
+        0.06143152544560444
+      ],
+      "best_static_frozen": [
+        -0.016930871444467192,
+        -0.016930871444467192,
+        -0.016930871444467192,
+        -0.016930871444467192,
+        -0.016930871444467192,
+        -0.016930871444467192,
+        -0.016930871444467192,
+        -0.016930871444467192
+      ],
+      "static_sparse": [
+        -0.02760539298049828,
+        -0.03037887907336231,
+        -0.02758892785768497,
+        -0.03211690206252691,
+        -0.033443062513681183,
+        -0.03211690157231467,
+        -0.027596684364909235,
+        -0.02354975267800075
+      ]
+    },
+    "selected_arm": "fast"
+  },
+  "verdict": "INCONCLUSIVE"
+}

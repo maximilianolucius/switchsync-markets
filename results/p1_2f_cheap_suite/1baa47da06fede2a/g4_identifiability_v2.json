@@ -1,0 +1,132 @@
+{
+  "gate": "G4_identifiability",
+  "provenance": {
+    "attempt_id": "1baa47da06fede2a",
+    "authorization_token_sha256": "3b4b903518fa5cb337cbf5416aa8cc6db8db47c1548b39545f562158b07aca29",
+    "campaign_id": "44be3a5d07e67b5e",
+    "criterion": "PASS iff precision>0.6 AND recall>0.6 AND contraction_corr>0.5 AND basis beats baseline (paired precision margin, shared rule)",
+    "environment": {
+      "packages": {
+        "matplotlib": "3.10.9",
+        "numpy": "2.4.4",
+        "scipy": "1.17.1"
+      },
+      "platform": "Linux-5.15.0-185-generic-x86_64-with-glibc2.35",
+      "python": "3.14.3"
+    },
+    "execution_contract_canonical_hash": "6dbe79ddf1d0b6e5e63f74a5ae3ed947abfc837419f4b7938fdcf8c09f525ee8",
+    "execution_contract_file_sha256": "80609ef5a90817813f0a9978ec017ab00734c3681abb0429fbe4ec4582b8c2bb",
+    "execution_mode": "cheap-suite",
+    "execution_scope": "cheap-suite",
+    "failures": [],
+    "freeze_commit": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "freeze_content_hash": "2991e064ced6154c149fa57d4fc77e855bede51750565c264972b369778d112d",
+    "freeze_tag": "switchsync-synthetic-execution-v8-freeze",
+    "orchestrator_sha256": "9591289aef02fa9d55608387b50571c177c2c0e8988e947f09013668549c4249",
+    "params": {
+      "N": 24,
+      "N_IL": 6,
+      "async_variants": [
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          3
+        ]
+      ],
+      "dwell_fast": 6,
+      "estimator_window": 8,
+      "factor_scale": 1.0,
+      "horizon_steps": 600,
+      "intra_coupling": 0.06,
+      "kappa": 0.6,
+      "obs_noise": 0.05,
+      "rho_target": 1.04
+    },
+    "prereg_canonical_hash": "a667434d0d7c5905d62cf81b79699f2799e2597128631cab1e4792bed6053dd9",
+    "prereg_file_sha256": "896163891b8b43f42511a1a57294d6075f3b65f33877780daf82cc03a54d568e",
+    "runner_sha256": "e9fbc0d023c612050ae8a6a1709170e2fb77b18aaef9309eff8667668c6a37f6",
+    "runtime_head": "5ca40c7da87f583c7cea1cefd00cc978c3731d98",
+    "seeds": [
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68
+    ],
+    "source_commit": "0bb2ab8a9c32f5c2f5193be97c7d29e919816944"
+  },
+  "result": {
+    "beats_baseline_decision": {
+      "alpha": 0.05,
+      "bootstrap_ci95_descriptor": [
+        0.1479096283783784,
+        0.17588770411036037
+      ],
+      "bootstrap_small_n_caveat": "bootstrap CI is a descriptor only, NOT the decision rule; with n<=8 it is unreliable",
+      "effect_band": 0.06461237365959166,
+      "floor": 0.05,
+      "mean": 0.16247888513513514,
+      "n": 8,
+      "paired_differences": [
+        0.15005630630630634,
+        0.17342342342342346,
+        0.16638513513513514,
+        0.165259009009009,
+        0.14921171171171174,
+        0.18355855855855857,
+        0.1224662162162162,
+        0.18947072072072071
+      ],
+      "reason": null,
+      "sample_std_ddof1": 0.021537457886530553,
+      "sign_test": {
+        "n_neg": 0,
+        "n_nonzero": 8,
+        "n_pos": 8,
+        "n_zero": 0,
+        "p_value": 0.0078125
+      },
+      "std_definition": "sample standard deviation of paired differences, ddof=1",
+      "std_mult": 3.0,
+      "verdict": "PASS",
+      "zero_handling": "differences with |d|<=1e-12 dropped from the sign test"
+    },
+    "by_async_variant": {
+      "async_1_1": {
+        "basis_precision": 0.3528997747747748,
+        "basis_recall": 0.3528997747747748,
+        "contraction_corr_same_realization": 0.9483404192711633,
+        "levelcorr_precision": 0.19042088963963963
+      },
+      "async_1_3": {
+        "basis_precision": 0.25439893018018017,
+        "basis_recall": 0.25439893018018017,
+        "contraction_corr_same_realization": 0.009930711273899849,
+        "levelcorr_precision": 0.2477829391891892
+      }
+    },
+    "conditions": {
+      "beats_baseline": true,
+      "contraction_corr_gt_0.5": true,
+      "precision_gt_0.6": false,
+      "recall_gt_0.6": false
+    },
+    "failed_by_variant": {
+      "async_1_1": {
+        "records": [],
+        "seeds": []
+      },
+      "async_1_3": {
+        "records": [],
+        "seeds": []
+      }
+    }
+  },
+  "verdict": "FAIL"
+}
